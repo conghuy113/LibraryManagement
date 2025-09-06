@@ -1,6 +1,10 @@
 "use server";
+interface LogoutResponse {
+	message: string;
+	status: number;
+}
 
-export async function logout(accessToken: string, refreshToken: string): Promise<{ message: string } | { error: string }> {
+export async function logout(accessToken: string, refreshToken: string): Promise<LogoutResponse | { error: string }> {
 	try {
 		const response = await fetch(`${process.env.API_BACKEND_URL}/auth/logout`, {
 			method: 'POST',
@@ -11,7 +15,7 @@ export async function logout(accessToken: string, refreshToken: string): Promise
 			body: JSON.stringify({ refreshToken: refreshToken }),
 		});
 		const data = await response.json();
-		if (!response.ok) {
+		if (!data || data.status !== 200) {
 			return { error: data.message || 'Logout failed' };
 		}
 		return data;

@@ -99,8 +99,5 @@ export class AuthController {
     @UsePipes(new ValidationPipe({ transform: true }))
     async logout(@Body('refreshToken') refreshToken: string) {
         await this.authService.logout(refreshToken);
-        return {
-            message: 'Logout successful',
-        };
     }
 }
