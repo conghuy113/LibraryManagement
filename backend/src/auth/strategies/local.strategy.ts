@@ -1,0 +1,26 @@
+import { AuthService } from '../service/auth.service';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { PassportStrategy } from '@nestjs/passport';
+import { Strategy } from 'passport-local';
+import { StatusUser } from 'src/utils/StatusUser';
+
+@Injectable()
+export class LocalStrategy extends PassportStrategy(Strategy) {
+  constructor(private authService: AuthService) {
+    super({ usernameField: 'email' });
+  }
+
+  async validate(email: string, password: string) {
+    const user = await this.authService.validateUser(email, password);
+    if (!user) {
+      throw new UnauthorizedException('Invalid email or password');
+    }
+    if(user.status === StatusUser.NOT_VERIFIED) {
+      throw new UnauthorizedException('Email not verified');
+    }
+    if(user.deleted_at !== null && user.status === StatusUser.BANNED) {
+      throw new UnauthorizedException('User account is deleted');
+    }
+    return user;
+  }
+}
