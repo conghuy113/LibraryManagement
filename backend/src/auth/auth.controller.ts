@@ -2,11 +2,9 @@ import { Body, Controller, Get, Param, Post, Req, Request, UseGuards, UsePipes, 
 import { AuthService } from "./service/auth.service";
 import { LocalGuard } from "./guards/local.guard";
 import { CreateUserDto } from "src/dto/create-user.dto";
-import type { VerifyEmailTokenDto } from "src/dto/verify-email-token.dto";
 import type { RequestWithUser } from "src/types/requests.type";
 import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from "./guards/jwt.guard";
-
 
 @ApiTags('auth')
 @Controller('auth')
@@ -76,9 +74,24 @@ export class AuthController {
     @ApiResponse({ status: 200, description: 'Email verified successfully' })
     @ApiResponse({ status: 400, description: 'Invalid or expired token' })
     @UsePipes(new ValidationPipe({ transform: true }))
-    @Get('email/verify/:token')
-    async verifyEmail(@Param() params: VerifyEmailTokenDto) {
-        return this.authService.verifyEmail(params.token);
+    @ApiBody({
+        schema: {
+            example: {
+                token: 'yourVerificationTokenHere'
+            },
+            properties: {
+                token: { type: 'string', example: 'yourVerificationTokenHere' }
+            },
+            required: ['token'],
+        },
+    })
+    @Post('email/verify')
+    async verifyEmail(@Body('token') token: string) {
+        await this.authService.verifyEmail(token);
+        return {
+            message: 'Email verified successfully',
+            statusCode: 200
+        };
     }
 
     @ApiBearerAuth()
@@ -99,5 +112,9 @@ export class AuthController {
     @UsePipes(new ValidationPipe({ transform: true }))
     async logout(@Body('refreshToken') refreshToken: string) {
         await this.authService.logout(refreshToken);
+        return { 
+            message: 'Logout successful',
+            statusCode: 200
+        };
     }
 }

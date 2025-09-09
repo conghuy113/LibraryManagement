@@ -17,15 +17,14 @@ export async function refreshToken(token: string): Promise<RefreshResponse | Err
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ refreshToken: token }),
+      body: JSON.stringify({ token: token }),
     });
 
     const data = await response.json();
 
-    if (!response.ok) {
+    if (!response.ok || response.status !== 200) {
       return data as ErrorResponse;
     }
-
     return data as RefreshResponse;
   } catch (error) {
     return {

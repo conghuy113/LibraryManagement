@@ -16,11 +16,15 @@ export class AuthService {
     ) {}
 
     private sendEmailVerificationMail(user: User): void {
-        const token = jwt.sign({userId: user._id}, process.env.JWT_SECRET as string, {
-            expiresIn: 60 * 60 * 24 * 14,
+        const token = jwt.sign({ userId: user._id as string }, process.env.JWT_SECRET as string, {
+            expiresIn: 60 * 60 * 24 * 14, // 14 days
         });
-        const url = `${process.env.FRONTEND_URL}/auth/email/verify/${token}`;
-        this.mailService.sendUserConfirmation(user, 'Library Website', url);
+        const url = `${process.env.FRONTEND_URL}/auth/email/${token}`;
+        try {
+            this.mailService.sendUserConfirmation(user, 'Library Website', url);
+        } catch (error) {
+            throw new BadRequestException('Error sending Verify email:', error);
+        }
     }
 
     async validateUser(email: string, password: string): Promise<User | null> {
@@ -38,13 +42,16 @@ export class AuthService {
     }
 
     async verifyEmail(token: string): Promise<User> {
-        try {
-            var userId = (jwt.verify(token, process.env.JWT_SECRET as string) as {userId: string}).userId;
-        } catch (error) {
-            throw new BadRequestException('Invalid token');
+        if (!token) {
+            throw new BadRequestException('Token is required', token);
         }
+        const decoded = jwt.verify(token, process.env.JWT_SECRET as string) as { userId: string };
+        const user = await this.userService.findOne(decoded.userId);
+        if (!user) throw new BadRequestException('User not found');
+        if (user.status === StatusUser.VERIFIED) throw new ConflictException('User already verified');
+        if (user.status === StatusUser.BANNED) throw new BadRequestException('User is banned');
         const updatedUser = await this.userService.update(
-            userId,
+            user._id as string,
             {
                 status: StatusUser.VERIFIED,
             },
@@ -53,14 +60,16 @@ export class AuthService {
     }
 
     async registerReader(user: CreateUserDto) {
+        const res = await this.userService.createReader(user);
+        if (!res) throw new BadRequestException('Error creating user. Please try again later.');
         try {
-            const res = await this.userService.createReader(user);
             this.sendEmailVerificationMail(res);
         } catch (error) {
-            throw new ConflictException('Email already exists.');
+            throw new BadRequestException('Error sending email verification. Please try again later.');
         }
         return {
             message: 'User registered successfully. Please check your email to verify your account.',
+            statusCode: 201,
         };
     }
 

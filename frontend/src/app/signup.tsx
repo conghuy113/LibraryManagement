@@ -2,6 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { register } from "./actions/user/register";
 
 interface SignupForm {
   firstName: string;
@@ -36,7 +37,8 @@ function validatePhoneVN(phone: string): boolean {
 }
 
 function validateDate(date: string): boolean {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) && !isNaN(new Date(date).getTime());
+  // Chấp nhận cả YYYY-MM-DD và DD/MM/YYYY
+  return (/^\d{4}-\d{2}-\d{2}$/.test(date) || /^([0-2][0-9]|(3)[0-1])\/(0[1-9]|1[0-2])\/\d{4}$/.test(date)) && !isNaN(new Date(date.replace(/\//g, '-')).getTime());
 }
 
 export default function SignupPage() {
@@ -58,7 +60,7 @@ export default function SignupPage() {
     setForm(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const newErrors: FormErrors = {};
 
@@ -86,8 +88,32 @@ export default function SignupPage() {
 
     setErrors(newErrors);
     if (Object.keys(newErrors).length === 0) {
-      // TODO: Integrate with signup API
-      alert("Đăng ký thành công (demo)");
+      // Gọi API đăng ký
+      // Chuyển DOB sang DD/MM/YYYY nếu đang ở dạng YYYY-MM-DD
+      let dob = form.DOB;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(form.DOB)) {
+        const [y, m, d] = form.DOB.split('-');
+        dob = `${d}/${m}/${y}`;
+      }
+      const payload = {
+        ...form,
+        DOB: dob,
+      };
+      const result = await register(payload);
+      if ('error' in result) {
+        alert(result.error);
+      } else {
+        alert(result.message || 'Đăng ký thành công!');
+        setForm({
+          firstName: "",
+          lastName: "",
+          email: "",
+          phoneNumber: "",
+          password: "",
+          DOB: "",
+          gender: "",
+        });
+      }
     }
   };
 
@@ -247,7 +273,7 @@ export default function SignupPage() {
             className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
               errors.DOB ? "border-red-500" : "border-gray-300"
             }`}
-            placeholder="YYYY-MM-DD"
+            placeholder="DD-MM-YYYY"
           />
           {errors.DOB && <p className="text-red-500 text-xs mt-1">{errors.DOB}</p>}
         </div>
