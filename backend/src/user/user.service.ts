@@ -7,6 +7,8 @@ import type { UserRepositoryInterface } from "./user.repository.interface";
 import { StatusUser } from "src/utils/StatusUser";
 import { UpdateUserDto } from "src/dto/update-user.dto";
 import * as bcrypt from 'bcrypt';
+import { FindAllResponse } from "src/utils/common.type";
+import { Types } from "mongoose";
 @Injectable()
 export class UserService extends BaseServiceAbstract<User> {
     constructor(
@@ -58,5 +60,58 @@ export class UserService extends BaseServiceAbstract<User> {
         const user = await this.users_repository.findOneById(userId);
         if (!user) throw new Error('User not found');
         return user;
+    }
+
+    async createManager(user : User): Promise<User> {
+        const existing_user = await this.findUserByEmail(user.email);
+        if(!existing_user) {
+            throw new Error('User not found');
+        }
+        if(user.status !== StatusUser.VERIFIED) {
+            throw new Error('User is not verified');
+        }
+        user.role = RoleUser.MANAGER;
+        await this.users_repository.update(existing_user._id as string, user);
+        return user;
+    }
+
+    async getAllUsers(): Promise<FindAllResponse<User>> {
+        const { items, count } = await this.users_repository.findAll();
+        items.forEach(user => {
+            this.changeToResponseUser(user);
+        });
+        return { items, count };
+    }
+
+    async createAdminUser(): Promise<User> {
+        const adminId = process.env.ADMIN_ID as string;
+        return {
+            _id: new Types.ObjectId(adminId),
+            email: process.env.ADMIN_EMAIL || 'admin@library.com',
+            firstName: 'System',
+            lastName: 'Administrator',
+            role: RoleUser.ADMIN,
+            status: StatusUser.VERIFIED,
+            password: '', // Admin không cần password trong object return
+            phoneNumber: '0000000000',
+            gender: 'male',
+            DOB: new Date('1990-01-01'),
+            refreshToken: undefined,
+            deleted_at: null,
+        } as unknown as User;
+    }
+
+    private changeToResponseUser(user: User): User {
+        user.password = "";
+        user.refreshToken = "";
+        return user;
+    }
+
+    async updateUser(id: String,status: StatusUser, role: RoleUser): Promise<User> {
+        const user = await this.users_repository.findOneById(id as string);
+        if (!user) throw new Error('User not found');
+        if(user.role === RoleUser.ADMIN) throw new Error('Cannot change role/status of admin');
+        const userUpdate = await this.users_repository.update(id as string, {status, role});
+        return userUpdate;
     }
 }

@@ -1,43 +1,53 @@
 'use client';
 
-import { createContext, useContext, useEffect } from 'react';
+import React, { createContext, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { logout } from '@/app/actions/user/logout';
+import { logout as logoutAction } from '../app/actions/user/logout';
 
 interface AuthContextType {
   isAuthenticated: boolean;
+  userRole: string | null;
   logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType>({
   isAuthenticated: false,
+  userRole: null,
   logout: () => {},
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const router = useRouter();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [userRole, setUserRole] = useState<string | null>(null);
+
   const logout = async () => {
-    const accessToken = (typeof window !== 'undefined') ? Cookies.get('accessToken') : undefined;
-    const refreshToken = (typeof window !== 'undefined') ? Cookies.get('refreshToken') : undefined;
-    if (accessToken && refreshToken) {
-      const { logout } = await import('@/app/actions/user/logout');
-      await logout(accessToken, refreshToken);
-    }
-    if (typeof window !== 'undefined') {
+    try {
+      const accessToken = Cookies.get('accessToken');
+      const refreshToken = Cookies.get('refreshToken');
+      
+      if (accessToken && refreshToken) {
+        await logoutAction(accessToken, refreshToken);
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+    } finally {
+      // Xóa cookies
       Cookies.remove('accessToken');
       Cookies.remove('refreshToken');
+      Cookies.remove('userRole');
+      setIsAuthenticated(false);
+      setUserRole(null);
+      router.push('/');
     }
-    router.push('/');
   };
 
   const checkAuth = () => {
-    if (typeof window !== 'undefined') {
-      const refreshToken = Cookies.get('refreshToken');
-      if (!refreshToken) {
-        router.push('/');
-      }
-    }
+    const accessToken = Cookies.get('accessToken');
+    const role = Cookies.get('userRole');
+    setIsAuthenticated(!!accessToken);
+    setUserRole(role || null);
   };
 
   useEffect(() => {
@@ -45,7 +55,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ isAuthenticated: true, logout }}>
+    <AuthContext.Provider value={{ isAuthenticated, userRole, logout }}>
       {children}
     </AuthContext.Provider>
   );

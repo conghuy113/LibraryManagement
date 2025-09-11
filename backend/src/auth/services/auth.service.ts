@@ -6,6 +6,9 @@ import { BadRequestException, ConflictException, Inject, Injectable, Unauthorize
 import * as bcrypt from 'bcrypt';
 import { StatusUser } from 'src/utils/StatusUser';
 import { CreateUserDto } from 'src/dto/create-user.dto';
+import { RoleUser } from 'src/utils/RoleUser';
+import { Types } from 'mongoose';
+
 
 
 @Injectable()
@@ -28,15 +31,24 @@ export class AuthService {
     }
 
     async validateUser(email: string, password: string): Promise<User | null> {
+        const emailAdmin = process.env.ADMIN_EMAIL;
+        const passwordAdmin = process.env.ADMIN_PASSWORD;
+        
+        if (email === emailAdmin && password === passwordAdmin) {
+            // Trả về admin user với đầy đủ thông tin cần thiết
+            return this.userService.createAdminUser();
+        }
+        
         const user = await this.userService.findUserByEmail(email);
         if (!user) {
             throw new UnauthorizedException('Email incorrect.');
         }
-
+        
         const isPasswordCorrect = await bcrypt.compare(password, user.password);
         if (!isPasswordCorrect) {
             throw new UnauthorizedException('Password incorrect.');
         }
+        
         user.password = "";
         return user;
     }
@@ -94,10 +106,15 @@ export class AuthService {
         });
     }
 
-    async login(userId) {
+    async login(userId, role?: string) {
         const { accessToken, refreshToken } 
         = await this.generateAccessTokenAndRefreshToken(userId);
-        await this.userService.setCurrentRefreshToken(userId, refreshToken);
+        
+        // Không lưu refreshToken cho admin vì admin không có trong database
+        if (!role || role !== RoleUser.ADMIN) {
+            await this.userService.setCurrentRefreshToken(userId, refreshToken);
+        }
+        
         return {
             accessToken,
             refreshToken,
@@ -106,7 +123,9 @@ export class AuthService {
 
     async logout(refreshToken: string): Promise<void> {
         const userId = this.decodeRefreshToken(refreshToken);
-        await this.userService.setCurrentRefreshToken(userId);
+        if(userId !== process.env.ADMIN_ID){
+            await this.userService.setCurrentRefreshToken(userId);
+        }
     }
 
     async refreshTokens(refreshToken: string) {
@@ -121,4 +140,5 @@ export class AuthService {
     private decodeRefreshToken(token: string): string {
         return (jwt.verify(token, process.env.JWT_SECRET_REFRESH_TOKEN as string) as {userId: string}).userId;
     }
+
 }

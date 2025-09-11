@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Library Management - Login",
+  title: "Library Management",
   description: "Library Management System",
 };
 

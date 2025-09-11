@@ -2,6 +2,7 @@
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  role?: string;
 }
 
 interface ErrorResponse {

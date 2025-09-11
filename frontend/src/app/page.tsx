@@ -67,10 +67,25 @@ export default function AuthPage() {
             secure: process.env.NODE_ENV === 'production',
             sameSite: 'lax'
           });
+
+          // Lưu role vào cookie (từ response backend)
+          if (response.role) {
+            Cookies.set('userRole', response.role, {
+              expires: 1800/86400, // 30 phút
+              secure: process.env.NODE_ENV === 'production',
+              sameSite: 'lax'
+            });
+          }
+
           // Hiển thị thông báo thành công
           toast.success('Đăng nhập thành công!');
-          // Redirect ngay lập tức sau khi đăng nhập thành công
-          router.push('/home');
+          
+          // Redirect dựa trên role
+          if (response.role === 'admin') {
+            router.push('/admin');
+          } else {
+            router.push('/home');
+          }
         }
       } catch (error) {
         toast.error('Có lỗi xảy ra khi đăng nhập');

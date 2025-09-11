@@ -6,6 +6,7 @@ import type { RequestWithUser } from "src/types/requests.type";
 import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from "./guards/jwt.guard";
 import { GoogleAuthGuard } from "./guards/google-oauth.guard";
+import { RoleUser } from "src/utils/RoleUser";
 
 @ApiTags('auth')
 @Controller('auth')
@@ -36,7 +37,8 @@ export class AuthController {
     @Post('login')
     async login(@Request() request: RequestWithUser) {
         const { user } = request;
-        return this.authService.login(user._id as string);
+        const tokens = await this.authService.login(user._id as string, user.role);
+        return user.role === RoleUser.ADMIN ? {role: user.role, ...tokens} : tokens;
     }
 
     @ApiOperation({ summary: 'Register a new reader' })

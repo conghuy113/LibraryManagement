@@ -13,8 +13,7 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt.guard';
 import { GoogleAuthGuard } from './guards/google-oauth.guard';
 import { GoogleStrategy } from './strategies/google.strategy';
-
-
+import { RoleGuard } from './guards/role.guard';
 
 @Module({
 	imports: [
@@ -28,7 +27,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
         PassportModule.register({session: true}),
 	],
 	controllers: [AuthController],
-	providers: [AuthService, LocalStrategy, LocalGuard,AuthSerializer,JwtStrategy, JwtAuthGuard, GoogleAuthGuard, GoogleStrategy],
-	exports: [AuthService, LocalGuard, JwtAuthGuard, GoogleAuthGuard],
+	providers: [AuthService, LocalStrategy, LocalGuard,AuthSerializer,JwtStrategy,
+		JwtAuthGuard, GoogleAuthGuard, GoogleStrategy, RoleGuard],
+	exports: [AuthService, LocalGuard, JwtAuthGuard, GoogleAuthGuard, RoleGuard],
 })
 export class AuthModule {}

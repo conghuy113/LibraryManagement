@@ -3,6 +3,9 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserService } from '../../user/user.service';
 import { TokenPayload } from '../interfaces/token.interface';
+import { AuthService } from '../services/auth.service';
+import { RoleUser } from 'src/utils/RoleUser';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -15,7 +18,13 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
     
     async validate(payload: TokenPayload) {
-        const user = await this.userService.findOne(payload.userId);
+        const userId = payload.userId;
+        // Kiểm tra nếu là admin với ID đặc biệt
+        if (userId === process.env.ADMIN_ID) {
+            return this.userService.createAdminUser();
+        }
+        // Tìm user thông thường trong database
+        const user = await this.userService.findOne(userId);
         if (!user) {
             throw new UnauthorizedException('User not found');
         }
