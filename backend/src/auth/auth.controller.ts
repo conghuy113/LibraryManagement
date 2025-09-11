@@ -1,10 +1,11 @@
 import { Body, Controller, Get, Param, Post, Req, Request, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
-import { AuthService } from "./service/auth.service";
+import { AuthService } from "./services/auth.service";
 import { LocalGuard } from "./guards/local.guard";
 import { CreateUserDto } from "src/dto/create-user.dto";
 import type { RequestWithUser } from "src/types/requests.type";
 import { ApiTags, ApiOperation, ApiBody, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { JwtAuthGuard } from "./guards/jwt.guard";
+import { GoogleAuthGuard } from "./guards/google-oauth.guard";
 
 @ApiTags('auth')
 @Controller('auth')
@@ -117,4 +118,42 @@ export class AuthController {
             statusCode: 200
         };
     }
+
+    @UseGuards(GoogleAuthGuard)
+	@Get('google')
+	@ApiResponse({
+		status: 401,
+		description: 'Unauthorized',
+		content: {
+			'application/json': {
+				example: {
+					statusCode: 400,
+					message: 'Wrong credentials!!',
+					error: 'Bad Request',
+				},
+			},
+		},
+	})
+	async authWithGoogle() {
+		return;
+	}
+
+	@UseGuards(GoogleAuthGuard)
+	@Get('google/callback')
+	@ApiResponse({
+		status: 401,
+		description: 'Unauthorized',
+		content: {
+			'application/json': {
+				example: {
+					statusCode: 400,
+					message: 'Wrong credentials!!',
+					error: 'Bad Request!',
+				},
+			},
+		},
+	})
+	async authWithGoogleCallback(@Req() request: RequestWithUser) {
+		return this.authService.login(request.user._id as string);
+	}
 }

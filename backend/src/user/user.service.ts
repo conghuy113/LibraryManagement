@@ -7,7 +7,6 @@ import type { UserRepositoryInterface } from "./user.repository.interface";
 import { StatusUser } from "src/utils/StatusUser";
 import { UpdateUserDto } from "src/dto/update-user.dto";
 import * as bcrypt from 'bcrypt';
-
 @Injectable()
 export class UserService extends BaseServiceAbstract<User> {
     constructor(
@@ -54,4 +53,10 @@ export class UserService extends BaseServiceAbstract<User> {
 			throw error;
 		}
 	}
+
+    async getMe(userId: string): Promise<User> {
+        const user = await this.users_repository.findOneById(userId);
+        if (!user) throw new Error('User not found');
+        return user;
+    }
 }

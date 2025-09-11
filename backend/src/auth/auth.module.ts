@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule } from '@nestjs/config';
 import { AuthController } from './auth.controller';
-import { AuthService } from './service/auth.service';
+import { AuthService } from './services/auth.service';
 import { LocalStrategy } from './strategies/local.strategy';
 import { LocalGuard } from './guards/local.guard';
 import { UserModule } from '../user/user.module';
@@ -11,6 +11,8 @@ import { PassportModule } from '@nestjs/passport';
 import { AuthSerializer } from './providers/serialization.provider';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt.guard';
+import { GoogleAuthGuard } from './guards/google-oauth.guard';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 
 
@@ -26,7 +28,7 @@ import { JwtAuthGuard } from './guards/jwt.guard';
         PassportModule.register({session: true}),
 	],
 	controllers: [AuthController],
-	providers: [AuthService, LocalStrategy, LocalGuard,AuthSerializer,JwtStrategy, JwtAuthGuard],
-	exports: [AuthService, LocalGuard, JwtAuthGuard],
+	providers: [AuthService, LocalStrategy, LocalGuard,AuthSerializer,JwtStrategy, JwtAuthGuard, GoogleAuthGuard, GoogleStrategy],
+	exports: [AuthService, LocalGuard, JwtAuthGuard, GoogleAuthGuard],
 })
 export class AuthModule {}

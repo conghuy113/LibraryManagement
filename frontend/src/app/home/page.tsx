@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, FormEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Book } from "@/types";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 
@@ -99,6 +100,7 @@ function BookCard({ book }: BookCardProps) {
 
 function HomeContent() {
   const { logout } = useAuth();
+  const router = useRouter();
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedCategory, setSelectedCategory] = useState<string>("all");
 
@@ -119,6 +121,12 @@ function HomeContent() {
         <div className="flex flex-col sm:flex-row justify-between items-center mb-8 gap-4">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold text-gray-900">Thư viện sách</h1>
+            <button
+              onClick={() => router.push("/profile")}
+              className="px-4 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-lg transition-colors"
+            >
+              Profile
+            </button>
             <button
               onClick={logout}
               className="px-4 py-2 text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"

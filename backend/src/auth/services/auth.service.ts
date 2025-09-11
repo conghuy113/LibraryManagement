@@ -1,6 +1,6 @@
-import { UserService } from './../../user/user.service';
+import { UserService } from '../../user/user.service';
 import { User } from 'src/user/user.entity';
-import { MailService } from './../../mail/mail.service';
+import { MailService } from '../../mail/mail.service';
 import * as jwt from 'jsonwebtoken';
 import { BadRequestException, ConflictException, Inject, Injectable, UnauthorizedException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
@@ -86,14 +86,12 @@ export class AuthService {
     }
 
     async generateAccessTokenAndRefreshToken(userId: string) {
-        const [accessToken, refreshToken] = await Promise.all([
+        return await Promise.all([
             this.generateAccessToken(userId),
             this.generateRefreshToken(userId),
-        ]);
-        return {
-            accessToken,
-            refreshToken,
-        };
+        ]).then(([accessToken, refreshToken]) => {
+            return { accessToken, refreshToken };
+        });
     }
 
     async login(userId) {
