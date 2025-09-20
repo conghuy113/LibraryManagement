@@ -3,9 +3,6 @@ import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { UserService } from '../../user/user.service';
 import { TokenPayload } from '../interfaces/token.interface';
-import { AuthService } from '../services/auth.service';
-import { RoleUser } from 'src/utils/RoleUser';
-import { Types } from 'mongoose';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {

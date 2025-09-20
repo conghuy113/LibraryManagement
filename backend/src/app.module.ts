@@ -7,6 +7,7 @@ import { database_config } from './configs/configuration.config';
 import Joi from 'joi';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
+import { BookModule } from './books/book.module';
 
 
 @Module({
@@ -40,6 +41,7 @@ import { AuthModule } from './auth/auth.module';
 		}),
 		UserModule,
 		AuthModule,
+		BookModule
 	],
 	controllers: [AppController],
 	providers: [AppService],

@@ -1,5 +1,5 @@
 "use server";
-
+import { cookies } from 'next/headers';
 interface User {
   _id: string;
   firstName: string;
@@ -28,8 +28,8 @@ interface ErrorResponse {
 
 export async function getAllUsers(): Promise<GetAllUsersResponse | ErrorResponse> {
   try {
-    const { cookies } = await import('next/headers');
-    const accessToken = (await cookies()).get('accessToken')?.value;
+    const cookie = await cookies();
+    const accessToken = cookie.get('accessToken')?.value;
 
     if (!accessToken) {
       return {

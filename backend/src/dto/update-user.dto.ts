@@ -1,8 +1,6 @@
-import { IsDate, IsEmail, IsPhoneNumber, MaxLength } from "class-validator";
+import { IsDate, IsPhoneNumber, IsString, Matches, MaxLength } from "class-validator";
 
 export class UpdateUserDto {
-    @IsEmail()
-    email: string;
 
     @MaxLength(50)
     firstName?: string;
@@ -10,11 +8,14 @@ export class UpdateUserDto {
     @MaxLength(50)
     lastName?: string;
 
-    @IsPhoneNumber()
+    @IsString()
+	@IsPhoneNumber('VN')
     phoneNumber?: string;
 
+    @IsString()
     gender?: string;
 
-    @IsDate()
-    DOB?: Date;
+    @IsString()
+    @Matches(/^([0-2][0-9]|(3)[0-1])\/(0[1-9]|1[0-2])\/\d{4}$/, { message: 'DOB must be in format DD/MM/YYYY' })
+    DOB?: string;
 }

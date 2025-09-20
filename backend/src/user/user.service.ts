@@ -1,3 +1,4 @@
+import { ChangePasswordDto } from './../dto/change-password-dto';
 import { RoleUser } from "src/utils/RoleUser";
 import { User } from "./user.entity";
 import { Inject, Injectable } from "@nestjs/common";
@@ -27,14 +28,6 @@ export class UserService extends BaseServiceAbstract<User> {
             role: RoleUser.READER,
             status: StatusUser.NOT_VERIFIED,
         });
-        return user;
-    }
-
-    async updateReader(update_dto: UpdateUserDto): Promise<User> {
-        const user = await this.findUserByEmail(update_dto.email);
-        if (!user) throw new Error('User not found');
-        if(user.status === StatusUser.BANNED) throw new Error('User is banned');
-        await this.users_repository.update(user._id as string, update_dto);
         return user;
     }
 
@@ -113,5 +106,41 @@ export class UserService extends BaseServiceAbstract<User> {
         if(user.role === RoleUser.ADMIN) throw new Error('Cannot change role/status of admin');
         const userUpdate = await this.users_repository.update(id as string, {status, role});
         return userUpdate;
+    }
+
+    async updateUserInformation(id: string, update_dto: UpdateUserDto): Promise<User> {
+        const user = await this.users_repository.findOneById(id);
+        if (!user) throw new Error('User not found');
+        if(user.status !== StatusUser.VERIFIED) throw new Error('User is not verified');
+        let parsedDOB: Date | undefined;
+        if (update_dto.DOB) {
+            parsedDOB = this.parsedDateInUpdate(update_dto.DOB);
+        }
+        const { DOB, ...otherFields } = update_dto;
+        const updateData = {
+            ...otherFields,
+            ...(parsedDOB && { DOB: parsedDOB })
+        };
+        return await this.users_repository.update(id, updateData);
+    }
+
+    private parsedDateInUpdate(dateString: string): Date {
+        const dateParts = dateString.split('/');
+        if (dateParts.length === 3) {
+            const [day, month, year] = dateParts;
+            return new Date(parseInt(year), parseInt(month) - 1, parseInt(day));
+        } else {
+            // Try to parse as regular date string
+            return new Date(dateString);
+        }
+    }
+
+    async changePassword(id: string, changePasswordDto: ChangePasswordDto): Promise<void> {
+        const user = await this.users_repository.findOneById(id);
+        if (!user || user.status !== StatusUser.VERIFIED) throw new Error('User not found');
+        const isMatch = await bcrypt.compare(changePasswordDto.oldPassword, user.password);
+        if (!isMatch) throw new Error('Old password is incorrect');
+        const hashedNewPassword = await this.hashPassword(changePasswordDto.newPassword);
+        await this.users_repository.update(id, { password: hashedNewPassword });
     }
 }

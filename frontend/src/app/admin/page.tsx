@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Cookies from 'js-cookie';
-import { logout as logoutAction } from '../actions/user/logout';
 import { getAllUsers } from '../actions/admin/getAllUsers';
 import { updateUserAdmin } from '../actions/admin/updateUser';
+import { useAuth } from "@/contexts/AuthContext";
 import toast, { Toaster } from "react-hot-toast";
 import { 
   Users, 
@@ -14,13 +14,13 @@ import {
   BookOpen, 
   Search, 
   Filter,
-  LogOut,
   Info,
   X,
   Calendar,
   Mail,
   Phone,
-  User as UserIcon
+  User as UserIcon,
+  LogOut
 } from 'lucide-react';
 
 interface User {
@@ -40,6 +40,7 @@ interface User {
 
 export default function AdminPage() {
   const router = useRouter();
+  const { logout } = useAuth();
   const [users, setUsers] = useState<User[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [selectedRole, setSelectedRole] = useState<string>('all');
@@ -48,10 +49,8 @@ export default function AdminPage() {
   const [showDetailModal, setShowDetailModal] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
-  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [userRole, setUserRole] = useState<string | null>(null);
   const [isValidating, setIsValidating] = useState(true);
-  // const [isRefreshing, setIsRefreshing] = useState(false); // removed refresh feature
 
   // Kiểm tra quyền admin từ Cookie
   useEffect(() => {
@@ -145,38 +144,6 @@ export default function AdminPage() {
     setFilteredUsers(filtered);
   }, [users, selectedRole, searchTerm]);
 
-  // Handle logout
-  const handleLogout = async () => {
-    if (confirm('Bạn có chắc chắn muốn đăng xuất?')) {
-      try {
-        setIsLoggingOut(true);
-        const accessToken = Cookies.get('accessToken');
-        const refreshToken = Cookies.get('refreshToken');
-        
-        if (accessToken && refreshToken) {
-          const result = await logoutAction(accessToken, refreshToken);
-        }
-        
-        // Xóa tất cả cookies
-        Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
-        Cookies.remove('userRole');
-        
-        // Redirect về trang đăng nhập
-        router.push('/');
-      } catch (error) {
-        console.error('Logout failed:', error);
-        // Vẫn xóa cookies và redirect trong trường hợp lỗi
-        Cookies.remove('accessToken');
-        Cookies.remove('refreshToken');
-        Cookies.remove('userRole');
-        router.push('/');
-      } finally {
-        setIsLoggingOut(false);
-      }
-    }
-  };
-
   // Callback khi cập nhật user thành công từ modal
   const handleUserUpdated = (updated: User) => {
     setUsers(prev => prev.map(u => u._id === updated._id ? updated : u));
@@ -192,6 +159,24 @@ export default function AdminPage() {
   const handleViewUser = (user: User) => {
     setSelectedUser(user);
     setShowDetailModal(true);
+  };
+
+  const handleLogout = async () => {
+    try {
+      const confirmed = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+      if (confirmed) {
+        await logout();
+        // Clear cookies manually to ensure they are removed
+        Cookies.remove('accessToken');
+        Cookies.remove('refreshToken');
+        Cookies.remove('userRole');
+        // Force redirect to homepage
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Logout error:', error);
+      toast.error('Có lỗi xảy ra khi đăng xuất');
+    }
   };
 
   const getRoleIcon = (role: string) => {
@@ -244,10 +229,10 @@ export default function AdminPage() {
   // Hiển thị loading khi đang validate token
   if (isValidating) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Đang xác thực quyền truy cập...</p>
+          <p className="mt-4 text-blue-600 font-medium">Đang xác thực quyền truy cập...</p>
         </div>
       </div>
     );
@@ -257,77 +242,84 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50">
       <Toaster position="top-right" />
       
-      {/* Header */}
-      <div className="bg-white shadow-sm border-b">
+      {/* Admin Header */}
+      <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">Quản lý tài khoản</h1>
-              <p className="text-gray-600">
-                Quản lý tài khoản Manager và Reader
-              </p>
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-red-600 rounded-lg flex items-center justify-center">
+                  <Shield className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <h1 className="text-xl font-bold text-gray-900">Admin Panel</h1>
+                  <p className="text-sm text-red-600">Library Management System</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
+
+            <div className="flex items-center gap-4">
+              <div className="hidden sm:flex items-center gap-2 px-3 py-2 bg-red-50 rounded-lg">
+                <UserIcon className="w-4 h-4 text-red-600" />
+                <span className="text-sm font-medium text-red-600">Quản trị viên</span>
+              </div>
               <button
                 onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="bg-red-600 hover:bg-red-700 disabled:bg-red-400 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors border border-red-200"
               >
-                {isLoggingOut ? (
-                  <>
-                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                    Đang xuất...
-                  </>
-                ) : (
-                  <>
-                    <LogOut className="w-4 h-4" />
-                    Đăng xuất
-                  </>
-                )}
+                <LogOut className="w-4 h-4" />
+                <span className="hidden sm:inline">Đăng xuất</span>
               </button>
             </div>
           </div>
         </div>
-      </div>
+      </header>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="space-y-8">
+
+
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow-sm border mb-6 p-6">
-          <div className="flex flex-col sm:flex-row gap-4">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <div className="flex flex-col lg:flex-row gap-4">
             {/* Search */}
-            <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo tên hoặc email..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              />
+            <div className="flex-1">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm theo tên hoặc email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+              </div>
             </div>
             
             {/* Role Filter */}
-            <div className="relative">
-              <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-4 h-4" />
-              <select
-                value={selectedRole}
-                onChange={(e) => setSelectedRole(e.target.value)}
-                className="pl-10 pr-8 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white"
-              >
-                <option value="all">Tất cả vai trò</option>
-                <option value="manager">Manager</option>
-                <option value="reader">Reader</option>
-              </select>
+            <div className="lg:w-64">
+              <div className="relative">
+                <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <select
+                  value={selectedRole}
+                  onChange={(e) => setSelectedRole(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent appearance-none bg-white"
+                >
+                  <option value="all">Tất cả vai trò</option>
+                  <option value="manager">Manager</option>
+                  <option value="reader">Reader</option>
+                </select>
+              </div>
             </div>
           </div>
         </div>
 
         {/* Users Table */}
-        <div className="bg-white rounded-lg shadow-sm border overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {loading ? (
             <div className="text-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
               <p className="mt-4 text-gray-600">Đang tải danh sách người dùng...</p>
             </div>
           ) : (
@@ -336,41 +328,43 @@ export default function AdminPage() {
                 <table className="min-w-full divide-y divide-gray-200">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Người dùng
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Vai trò
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Trạng thái
                       </th>
-                      <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Ngày tạo
                       </th>
-                      <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      <th className="px-6 py-4 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                         Hành động
                       </th>
                     </tr>
                   </thead>
                   <tbody className="bg-white divide-y divide-gray-200">
                     {filteredUsers.map((user) => (
-                      <tr key={user._id} className="hover:bg-gray-50">
+                      <tr key={user._id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4 whitespace-nowrap">
                           <div className="flex items-center">
-                            <div className="flex-shrink-0 h-10 w-10">
-                              <div className="h-10 w-10 rounded-full bg-gray-300 flex items-center justify-center">
-                                <span className="text-sm font-medium text-gray-700">
+                            <div className="flex-shrink-0 h-12 w-12">
+                              <div className="h-12 w-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                                <span className="text-sm font-bold text-white">
                                   {user.firstName.charAt(0)}{user.lastName.charAt(0)}
                                 </span>
                               </div>
                             </div>
                             <div className="ml-4">
-                              <div className="text-sm font-medium text-gray-900">
+                              <div className="text-sm font-semibold text-gray-900">
                                 {user.firstName} {user.lastName}
                               </div>
                               <div className="text-sm text-gray-500">{user.email}</div>
-                              <div className="text-sm text-gray-500">{user.phoneNumber}</div>
+                              {user.phoneNumber && (
+                                <div className="text-sm text-gray-500">{user.phoneNumber}</div>
+                              )}
                             </div>
                           </div>
                         </td>
@@ -390,7 +384,7 @@ export default function AdminPage() {
                           <div className="flex items-center justify-end gap-2">
                             <button
                               onClick={() => handleViewUser(user)}
-                              className="text-green-600 hover:text-green-900 p-1 rounded"
+                              className="text-green-600 hover:text-green-700 p-2 rounded-lg hover:bg-green-50 transition-colors"
                               title="Xem chi tiết"
                             >
                               <Info className="w-4 h-4" />
@@ -398,7 +392,7 @@ export default function AdminPage() {
                             {user.role !== 'admin' && (
                               <button
                                 onClick={() => handleEditUser(user)}
-                                className="text-blue-600 hover:text-blue-900 p-1 rounded"
+                                className="text-blue-600 hover:text-blue-700 p-2 rounded-lg hover:bg-blue-50 transition-colors"
                                 title="Chỉnh sửa"
                               >
                                 <Edit3 className="w-4 h-4" />
@@ -414,9 +408,11 @@ export default function AdminPage() {
               
               {filteredUsers.length === 0 && !loading && (
                 <div className="text-center py-12">
-                  <Users className="mx-auto h-12 w-12 text-gray-400" />
-                  <h3 className="mt-2 text-sm font-medium text-gray-900">Không có người dùng</h3>
-                  <p className="mt-1 text-sm text-gray-500">
+                  <div className="w-16 h-16 bg-gray-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <Users className="w-8 h-8 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 mb-2">Không có người dùng</h3>
+                  <p className="text-gray-500">
                     {searchTerm || selectedRole !== 'all' 
                       ? 'Không tìm thấy người dùng nào phù hợp với bộ lọc.'
                       : 'Chưa có người dùng nào trong hệ thống.'
@@ -427,7 +423,8 @@ export default function AdminPage() {
             </>
           )}
         </div>
-      </div>
+        </div>
+      </main>
 
       {/* User Detail Modal */}
       {showDetailModal && selectedUser && (
@@ -701,6 +698,9 @@ function EditUserModal({ user, onClose, onUpdated }: { user: User; onClose: () =
   const originalRole = user.role;
   const originalStatus = user.status;
 
+  // Kiểm tra nếu trạng thái là "not_verified"
+  const isNotVerified = user.status === 'not_verified';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (isNotVerified) {
@@ -743,9 +743,6 @@ function EditUserModal({ user, onClose, onUpdated }: { user: User; onClose: () =
       setIsSubmitting(false);
     }
   };
-
-  // Kiểm tra nếu trạng thái là "not_verified"
-  const isNotVerified = user.status === 'not_verified';
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">

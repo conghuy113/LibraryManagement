@@ -33,7 +33,7 @@ function validateStrongPassword(password: string): boolean {
 }
 
 function validatePhoneVN(phone: string): boolean {
-  return /^(0|\+84)[0-9]{9,10}$/.test(phone) || phone === "";
+  return /^(0)[0-9]{9,10}$/.test(phone) || phone === "";
 }
 
 function validateDate(date: string): boolean {
@@ -118,19 +118,13 @@ export default function SignupPage() {
   };
 
   return (
-    <div
-      className="bg-white rounded-xl shadow-lg p-8 flex flex-col gap-6"
-      style={{ minHeight: 600 }}
-    >
-      <h1 className="text-2xl font-bold text-center text-gray-800 mb-2">
-        Đăng ký tài khoản
-      </h1>
-      <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
-        <div className="flex gap-4">
-          <div className="w-1/2">
+    <div className="p-8">
+      <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
             <label
               htmlFor="firstName"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
               Họ
             </label>
@@ -142,19 +136,19 @@ export default function SignupPage() {
               required
               value={form.firstName}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                 errors.firstName ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Nhập họ"
             />
             {errors.firstName && (
-              <p className="text-red-500 text-xs mt-1">{errors.firstName}</p>
+              <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>
             )}
           </div>
-          <div className="w-1/2">
+          <div>
             <label
               htmlFor="lastName"
-              className="block text-sm font-medium text-gray-700 mb-1"
+              className="block text-sm font-medium text-gray-700 mb-2"
             >
               Tên
             </label>
@@ -166,20 +160,21 @@ export default function SignupPage() {
               required
               value={form.lastName}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                 errors.lastName ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Nhập tên"
             />
             {errors.lastName && (
-              <p className="text-red-500 text-xs mt-1">{errors.lastName}</p>
+              <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>
             )}
           </div>
         </div>
+        
         <div>
           <label
             htmlFor="email"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Email
           </label>
@@ -191,19 +186,20 @@ export default function SignupPage() {
             required
             value={form.email}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
               errors.email ? "border-red-500" : "border-gray-300"
             }`}
             placeholder="Nhập email"
           />
           {errors.email && (
-            <p className="text-red-500 text-xs mt-1">{errors.email}</p>
+            <p className="text-red-500 text-sm mt-1">{errors.email}</p>
           )}
         </div>
+        
         <div>
           <label
             htmlFor="phoneNumber"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Số điện thoại (tùy chọn)
           </label>
@@ -213,19 +209,20 @@ export default function SignupPage() {
             type="tel"
             value={form.phoneNumber}
             onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+            className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
               errors.phoneNumber ? "border-red-500" : "border-gray-300"
             }`}
             placeholder="Nhập số điện thoại"
           />
           {errors.phoneNumber && (
-            <p className="text-red-500 text-xs mt-1">{errors.phoneNumber}</p>
+            <p className="text-red-500 text-sm mt-1">{errors.phoneNumber}</p>
           )}
         </div>
+        
         <div>
           <label
             htmlFor="password"
-            className="block text-sm font-medium text-gray-700 mb-1"
+            className="block text-sm font-medium text-gray-700 mb-2"
           >
             Mật khẩu
           </label>
@@ -237,7 +234,7 @@ export default function SignupPage() {
               required
               value={form.password}
               onChange={handleChange}
-              className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
                 errors.password ? "border-red-500" : "border-gray-300"
               }`}
               placeholder="Nhập mật khẩu"
@@ -245,7 +242,7 @@ export default function SignupPage() {
             <button
               type="button"
               tabIndex={-1}
-              className="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 text-sm"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 text-sm font-medium"
               onClick={() => setShowPassword((v) => !v)}
               aria-label={showPassword ? "Ẩn mật khẩu" : "Hiện mật khẩu"}
             >
@@ -253,66 +250,68 @@ export default function SignupPage() {
             </button>
           </div>
           {errors.password && (
-            <p className="text-red-500 text-xs mt-1">{errors.password}</p>
+            <p className="text-red-500 text-sm mt-1">{errors.password}</p>
           )}
         </div>
-        <div>
-          <label
-            htmlFor="DOB"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Ngày sinh
-          </label>
-          <input
-            id="DOB"
-            name="DOB"
-            type="date"
-            required
-            value={form.DOB}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.DOB ? "border-red-500" : "border-gray-300"
-            }`}
-            placeholder="DD-MM-YYYY"
-          />
-          {errors.DOB && <p className="text-red-500 text-xs mt-1">{errors.DOB}</p>}
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label
+              htmlFor="DOB"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Ngày sinh
+            </label>
+            <input
+              id="DOB"
+              name="DOB"
+              type="date"
+              required
+              value={form.DOB}
+              onChange={handleChange}
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                errors.DOB ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="DD-MM-YYYY"
+            />
+            {errors.DOB && <p className="text-red-500 text-sm mt-1">{errors.DOB}</p>}
+          </div>
+          
+          <div>
+            <label
+              htmlFor="gender"
+              className="block text-sm font-medium text-gray-700 mb-2"
+            >
+              Giới tính
+            </label>
+            <select
+              id="gender"
+              name="gender"
+              required
+              value={form.gender}
+              onChange={handleChange}
+              className={`w-full px-4 py-3 border rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-colors ${
+                errors.gender ? "border-red-500" : "border-gray-300"
+              }`}
+            >
+              <option value="">-- Chọn giới tính --</option>
+              <option value="male">Nam</option>
+              <option value="female">Nữ</option>
+              <option value="other">Khác</option>
+            </select>
+            {errors.gender && (
+              <p className="text-red-500 text-sm mt-1">{errors.gender}</p>
+            )}
+          </div>
         </div>
-        <div>
-          <label
-            htmlFor="gender"
-            className="block text-sm font-medium text-gray-700 mb-1"
-          >
-            Giới tính
-          </label>
-          <select
-            id="gender"
-            name="gender"
-            required
-            value={form.gender}
-            onChange={handleChange}
-            className={`w-full px-3 py-2 border rounded focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-              errors.gender ? "border-red-500" : "border-gray-300"
-            }`}
-          >
-            <option value="">-- Chọn giới tính --</option>
-            <option value="male">Nam</option>
-            <option value="female">Nữ</option>
-            <option value="other">Khác</option>
-          </select>
-          {errors.gender && (
-            <p className="text-red-500 text-xs mt-1">{errors.gender}</p>
-          )}
-        </div>
+        
         <button
           type="submit"
-          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 rounded transition-colors mt-2"
+          className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-colors"
         >
           Đăng ký
         </button>
       </form>
-      <div className="text-center text-sm text-gray-500 mt-4">
-        © {new Date().getFullYear()} Library Management
-      </div>
     </div>
   );
 }

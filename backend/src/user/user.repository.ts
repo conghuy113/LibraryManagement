@@ -4,7 +4,7 @@ import { User } from "./user.entity";
 import { UserRepositoryInterface } from "./user.repository.interface";
 import { InjectModel } from "@nestjs/mongoose";
 import { Model } from "mongoose";
-import { FindAllResponse } from "src/utils/common.type";
+
 
 @Injectable()
 export class UserRepository

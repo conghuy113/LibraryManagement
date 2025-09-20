@@ -1,4 +1,3 @@
-import { IsNotEmpty } from 'class-validator';
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Expose } from 'class-transformer';
 import { HydratedDocument } from 'mongoose';

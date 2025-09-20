@@ -23,7 +23,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy, 'google'){
         if (!emails || !emails.length) {
             throw new Error('No email associated with this account!');
         }
-        
         const email = emails[0].value;
         const user = await this.userService.findUserByEmail(email);
         if (user) {

@@ -8,6 +8,7 @@ export class AuthSerializer extends PassportSerializer {
   constructor(private readonly userService: UserService) {
     super();
   }
+
   serializeUser(user: User, done: (err: Error, user: { id: any }) => void) {
     done(null as any, { id: user._id });
   }

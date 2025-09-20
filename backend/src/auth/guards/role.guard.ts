@@ -3,7 +3,7 @@ import { Reflector } from '@nestjs/core';
 import { RoleUser } from 'src/utils/RoleUser';
 
 @Injectable()
-export class RoleGuard implements CanActivate {  // Đổi tên từ RoleStrategy thành RoleGuard
+export class RoleGuard implements CanActivate {
     constructor(private reflector: Reflector) {}
 
     canActivate(context: ExecutionContext): boolean {
@@ -38,20 +38,6 @@ export class RoleGuard implements CanActivate {  // Đổi tên từ RoleStrateg
                 throw new ForbiddenException(`Access denied. Required roles: ${requiredRoles.join(', ')}`);
             }
         }
-
         return true;
-    }
-
-    // Helper methods
-    static isAdmin(user: any): boolean {
-        return user && user.role === RoleUser.ADMIN;
-    }
-
-    static hasRole(user: any, role: RoleUser): boolean {
-        return user && user.role === role;
-    }
-
-    static hasAnyRole(user: any, roles: RoleUser[]): boolean {
-        return user && roles.includes(user.role);
     }
 }

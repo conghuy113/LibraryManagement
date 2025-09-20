@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, Req, Request, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, Request, UseGuards, UsePipes, ValidationPipe } from "@nestjs/common";
 import { AuthService } from "./services/auth.service";
 import { LocalGuard } from "./guards/local.guard";
 import { CreateUserDto } from "src/dto/create-user.dto";
@@ -21,12 +21,12 @@ export class AuthController {
         description: 'User credentials',
         schema: {
             example: {
-                email: 'user@example.com',
-                password: 'yourPassword123'
+                email: 'conghuy.fptu@gmail.com',
+                password: 'Conghuy123...'
             },
             properties: {
-                email: { type: 'string', example: 'user@example.com' },
-                password: { type: 'string', example: 'yourPassword123' }
+                email: { type: 'string', example: 'conghuy.fptu@gmail.com' },
+                password: { type: 'string', example: 'Conghuy123...' }
             },
             required: ['email', 'password'],
         },
@@ -38,7 +38,7 @@ export class AuthController {
     async login(@Request() request: RequestWithUser) {
         const { user } = request;
         const tokens = await this.authService.login(user._id as string, user.role);
-        return user.role === RoleUser.ADMIN ? {role: user.role, ...tokens} : tokens;
+        return user.role !== RoleUser.READER ? {role: user.role, ...tokens} : tokens;
     }
 
     @ApiOperation({ summary: 'Register a new reader' })
@@ -69,7 +69,7 @@ export class AuthController {
     @ApiResponse({ status: 400, description: 'Validation failed' })
     @Post('register-reader')
     @UsePipes(new ValidationPipe({ transform: true }))
-    async registerReader(@Body() createUserDto: CreateUserDto, @Request() req) {
+    async registerReader(@Body() createUserDto: CreateUserDto) {
         return await this.authService.registerReader(createUserDto);
     }
 
@@ -97,7 +97,7 @@ export class AuthController {
         };
     }
 
-    @ApiBearerAuth()
+    @ApiBearerAuth('token')
     @ApiOperation({ summary: 'Refresh access and refresh tokens' })
     @ApiResponse({ status: 200, description: 'Tokens refreshed successfully' })
     @ApiResponse({ status: 401, description: 'Unauthorized' })
