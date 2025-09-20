@@ -1,4 +1,6 @@
 "use server";
+import { getAuthHeaders } from '@/app/utils/auth';
+import { ErrorResponse, GetAllUsersResponse } from '@/types';
 import { cookies } from 'next/headers';
 interface User {
   _id: string;
@@ -15,16 +17,6 @@ interface User {
   deleted_at: string | null;
 }
 
-interface GetAllUsersResponse {
-  users: User[];
-  totalUsers: number;
-}
-
-interface ErrorResponse {
-  message: string;
-  error: string;
-  statusCode: number;
-}
 
 export async function getAllUsers(): Promise<GetAllUsersResponse | ErrorResponse> {
   try {
@@ -41,10 +33,7 @@ export async function getAllUsers(): Promise<GetAllUsersResponse | ErrorResponse
 
     const response = await fetch(`${process.env.API_BACKEND_URL}/users/all-users`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
+      headers: await getAuthHeaders(accessToken),
       cache: 'no-store',
     });
 

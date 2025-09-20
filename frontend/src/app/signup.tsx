@@ -3,6 +3,7 @@
 import { useState, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import { register } from "./actions/user/register";
+import toast, { Toaster } from 'react-hot-toast';
 
 interface SignupForm {
   firstName: string;
@@ -101,9 +102,9 @@ export default function SignupPage() {
       };
       const result = await register(payload);
       if ('error' in result) {
-        alert(result.error);
+        toast.error(result.error);
       } else {
-        alert(result.message || 'Đăng ký thành công!');
+        toast.success(result.message || 'Đăng ký thành công!');
         setForm({
           firstName: "",
           lastName: "",
@@ -312,6 +313,16 @@ export default function SignupPage() {
           Đăng ký
         </button>
       </form>
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#fff',
+            color: '#333',
+          },
+        }}
+      />
     </div>
   );
 }

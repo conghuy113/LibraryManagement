@@ -7,8 +7,10 @@ import { useAuth } from "@/contexts/AuthContext";
 import { getMe } from "@/app/actions/user/getMe";
 import { updateUser } from "@/app/actions/user/updateUser";
 import { changePassword } from "@/app/actions/user/changePassword";
-import { Library, User, LogOut, Home, BookOpen, Users, Shield, X, Calendar, Phone, Lock } from "lucide-react";
+import {  User, LogOut, Home, Users, Shield, Lock } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
+import { showConfirm } from "@/utils/dialog";
+import Footer from "@/components/layout/Footer";
 
 function formatDOB(dob: string) {
   if (!dob) return "";
@@ -20,7 +22,7 @@ function formatDOB(dob: string) {
   return dob;
 }
 
-interface User {
+interface UserInfo {
   _id: string;
   firstName: string;
   lastName: string;
@@ -38,7 +40,7 @@ interface User {
 export default function ProfilePage() {
   const router = useRouter();
   const { logout, userRole } = useAuth();
-  const [user, setUser] = useState<User | null>(null);
+  const [user, setUser] = useState<UserInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -58,7 +60,7 @@ export default function ProfilePage() {
 
   const handleLogout = async () => {
     try {
-      const confirmed = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+      const confirmed = await showConfirm('Bạn có chắc chắn muốn đăng xuất?');
       if (confirmed) {
         await logout();
         Cookies.remove('accessToken');
@@ -89,8 +91,8 @@ export default function ProfilePage() {
       if ("error" in result) {
         setUser(null);
       } else {
-        // Transform API result to match User interface
-        const userData: User = {
+        // Transform API result to match UserInfo interface
+        const userData: UserInfo = {
           _id: result._id,
           firstName: result.firstName || '',
           lastName: result.lastName || '',
@@ -145,7 +147,7 @@ export default function ProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Custom Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -217,7 +219,7 @@ export default function ProfilePage() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
         <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="text-center">
@@ -476,7 +478,7 @@ export default function ProfilePage() {
 
                     // Update local user data
                     if (user) {
-                      const updatedUser: User = {
+                      const updatedUser: UserInfo = {
                         ...user,
                         firstName: updateData.firstName,
                         lastName: updateData.lastName,
@@ -732,6 +734,8 @@ export default function ProfilePage() {
         </div>
       </main>
       <Toaster position="top-right" />
+      
+      <Footer />
     </div>
   );
 }

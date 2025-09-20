@@ -1,3 +1,7 @@
+// ====================================================================
+// CORE ENTITY INTERFACES
+// ====================================================================
+
 export interface TypeBook {
   _id: string;
   name: string; // Tên loại sách
@@ -32,31 +36,235 @@ export interface Book {
 }
 
 // Keep old interfaces for backward compatibility if needed
-export interface LegacyBook {
-  id: number;
-  title: string;
-  author: string;
-  category: string;
-  publishYear: number;
-  coverImage: string;
-  available: boolean;
-  bookCoverId?: number;
-  bookTypeId?: number;
-  bookCover?: BookCover;
-  bookType?: TypeBook;
-}
 
-export interface User {
-  id: number;
+// ====================================================================
+// ADMIN USER INTERFACE
+// ====================================================================
+
+export interface AdminUser {
+  _id: string;
   firstName: string;
   lastName: string;
+  gender: string;
   email: string;
-  phoneNumber?: string;
-  DOB: Date;
-  gender: 'male' | 'female' | 'other';
+  DOB: string;
+  phoneNumber: string;
+  role: 'admin' | 'manager' | 'reader';
+  status: 'verified' | 'not_verified' | 'banned';
+  createdAt: string;
+  updatedAt: string;
+  deleted_at: string | null;
 }
+
+// ====================================================================
+// API RESPONSE INTERFACES
+// ====================================================================
+
+export interface ApiResponse<T> {
+  message?: string;
+  status?: number;
+  data?: T;
+  items?: T[];
+}
+
+export interface ErrorResponse {
+  message: string;
+  error?: string;
+  statusCode?: number;
+}
+
+// ====================================================================
+// AUTHENTICATION INTERFACES
+// ====================================================================
 
 export interface LoginCredentials {
   email: string;
   password: string;
+}
+
+export interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  role?: string;
+}
+
+export interface RefreshResponse {
+  accessToken: string;
+  refreshToken: string;
+}
+
+export interface LoginOAuth2Response {
+  accessToken: string;
+  refreshToken: string;
+  role?: string;
+}
+
+export interface LoginOAuth2ErrorResponse {
+  statusCode: number;
+  message: string;
+  error: string;
+}
+
+export interface LogoutResponse {
+  message: string;
+  status: number;
+}
+
+// ====================================================================
+// USER PROFILE INTERFACES
+// ====================================================================
+
+export interface UserProfile {
+  firstName: string;
+  lastName: string;
+  email: string;
+  phoneNumber: string;
+  gender: string;
+  DOB: string;
+  [key: string]: any;
+}
+
+export interface GetMeError {
+  error: string;
+  message?: string;
+  statusCode?: number;
+}
+
+// ====================================================================
+// USER REGISTRATION INTERFACES
+// ====================================================================
+
+export interface RegisterPayload {
+  email: string;
+  password: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber: string;
+  gender: string;
+  DOB: string;
+}
+
+export interface RegisterSuccess {
+  message?: string;
+  [key: string]: any;
+}
+
+export interface RegisterError {
+  error: string;
+  message?: string;
+  statusCode?: number;
+}
+
+// ====================================================================
+// USER VERIFICATION INTERFACES
+// ====================================================================
+
+export interface VerifyResult {
+  message: string;
+  statusCode: number;
+}
+
+export interface VerifyError {
+  error: string;
+  message?: string;
+  statusCode?: number;
+}
+
+// ====================================================================
+// USER UPDATE INTERFACES
+// ====================================================================
+
+export interface UpdateUserDTO {
+  firstName?: string;
+  lastName?: string;
+  phoneNumber?: string;
+  gender?: string;
+  DOB?: string;
+}
+
+export interface ChangePasswordDTO {
+  oldPassword: string;
+  newPassword: string;
+}
+
+// ====================================================================
+// ADMIN UPDATE USER INTERFACES
+// ====================================================================
+
+export interface UpdateUserPayload {
+  id: string;
+  role?: 'manager' | 'reader';
+  status?: 'verified' | 'banned';
+}
+
+
+
+export interface GetAllUsersResponse {
+  users: AdminUser[];
+  totalUsers: number;
+}
+
+// ====================================================================
+// BOOK COVER DTO INTERFACES
+// ====================================================================
+
+export interface CreateBookCoverDto {
+  title: string;
+  authorName: string;
+  publicationYear: string;
+  publisher: string;
+  typeBookId: string;
+  image: string;
+}
+
+export interface UpdateCoverBookDto {
+  id: string;
+  title?: string;
+  authorName?: string;
+  publicationYear?: string;
+  publisher?: string;
+  typeBookId?: string;
+  image?: string;
+}
+
+export interface DeleteCoverBookDto {
+  id: string;
+}
+
+// ====================================================================
+// TYPE BOOK DTO INTERFACES
+// ====================================================================
+
+export interface CreateTypeBookDto {
+  name: string;
+  description: string;
+}
+
+export interface UpdateTypeBookDto {
+  name: string;
+  description: string;
+}
+
+// ====================================================================
+// BOOK DTO INTERFACES
+// ====================================================================
+
+export interface CreateBookDto {
+  idBook: string;
+  importDate: string; // DD-MM-YYYY format from backend
+  index: string;
+  idBookCover: string;
+}
+
+export interface UpdateBookDto {
+  id: string;
+  idBook?: string;
+  importDate?: string; // DD-MM-YYYY format
+  index?: string;
+  idBookCover?: string;
+  status?: string;
+}
+
+export interface DeleteBookDto {
+  id: string;
 }

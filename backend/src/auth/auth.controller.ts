@@ -156,6 +156,8 @@ export class AuthController {
 		},
 	})
 	async authWithGoogleCallback(@Req() request: RequestWithUser) {
-		return this.authService.login(request.user._id as string);
+        const { user } = request;
+        const tokens = await this.authService.login(user._id as string, user.role);
+        return user.role !== RoleUser.READER ? {role: user.role, ...tokens} : tokens;
 	}
 }

@@ -1,18 +1,13 @@
 "use server";
 
-interface ChangePasswordDTO {
-    oldPassword: string;
-    newPassword: string;
-}
+import { ChangePasswordDTO } from "@/types";
+import { getAuthHeaders } from "@/app/utils/auth";
 
 export const changePassword = async (accessToken: string, data: ChangePasswordDTO) => {
     try {
         const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/change-password`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`
-            },
+            headers: await getAuthHeaders(accessToken),
             body: JSON.stringify(data)
         });
 

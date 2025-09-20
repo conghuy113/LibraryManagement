@@ -1,12 +1,6 @@
 "use server";
 
-interface UpdateUserDTO {
-    firstName?: string;
-    lastName?: string;
-    phoneNumber?: string;
-    gender?: string;
-    DOB?: string;
-}
+import { UpdateUserDTO } from "@/types";
 
 export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
     try {
@@ -41,15 +35,7 @@ export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
         const contentType = response.headers.get('content-type');
         if (contentType && contentType.includes('application/json')) {
             const result = await response.json();
-            
-            // Handle backend response format: { message: string, status: number }
-            if (result.status && result.status !== 200) {
-                return {
-                    statusCode: result.status,
-                    message: result.message || 'Update profile failed'
-                };
-            }
-            
+           
             return result;
         } else {
             // If response is not JSON, assume success for 2xx status codes

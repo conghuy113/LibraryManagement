@@ -1,29 +1,13 @@
 "use server";
 
-export interface UserProfile {
-	firstName: string;
-	lastName: string;
-	email: string;
-	phoneNumber: string;
-	gender: string;
-	DOB: string;
-	[key: string]: any;
-}
-
-export interface GetMeError {
-	error: string;
-	message?: string;
-	statusCode?: number;
-}
+import { getAuthHeaders } from "@/app/utils/auth";
+import { UserProfile, GetMeError } from "@/types";
 
 export async function getMe(accessToken: string): Promise<UserProfile | GetMeError> {
 	try {
 		const response = await fetch(`${process.env.API_BACKEND_URL}/users/profile`, {
 			method: "GET",
-			headers: {
-				"Content-Type": "application/json",
-				"Authorization": `Bearer ${accessToken}`,
-			},
+			headers: await getAuthHeaders(accessToken),
 		});
 		const data = await response.json();
 		if (!response.ok) {

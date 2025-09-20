@@ -1,22 +1,14 @@
 "use server";
-export interface LoginOAuth2Response {
-  accessToken: string;
-  refreshToken: string;
-}
 
-export interface LoginOAuth2ErrorResponse {
-  statusCode: number;
-  message: string;
-  error: string;
-}
+import { getAuthHeaders } from "@/app/utils/auth";
+import { LoginOAuth2Response, LoginOAuth2ErrorResponse } from "@/types";
+
 
 export async function loginOAuth2(code: string): Promise<LoginOAuth2Response | LoginOAuth2ErrorResponse> {
   try {
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/auth/google/callback?code=${encodeURIComponent(code)}`, {
       method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
       credentials: 'include',
     });
 
@@ -33,6 +25,7 @@ export async function loginOAuth2(code: string): Promise<LoginOAuth2Response | L
     return {
       accessToken: data.accessToken,
       refreshToken: data.refreshToken,
+      ...(data.role && { role: data.role })
     };
   } catch (error) {
     return {

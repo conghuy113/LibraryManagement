@@ -1,21 +1,13 @@
 "use server";
 
-interface UpdateUserPayload {
-  id: string;
-  role?: 'manager' | 'reader';
-  status?: 'verified' | 'banned';
-}
+import { ErrorResponse, UpdateUserPayload } from '@/types';
+import { getAuthHeaders } from '@/app/utils/auth';
 
 interface SuccessResponse {
   message: string;
   user: any;
 }
 
-interface ErrorResponse {
-  message: string;
-  error: string;
-  statusCode: number;
-}
 
 export async function updateUserAdmin(payload: UpdateUserPayload): Promise<SuccessResponse | ErrorResponse> {
   try {
@@ -37,10 +29,7 @@ export async function updateUserAdmin(payload: UpdateUserPayload): Promise<Succe
 
     const response = await fetch(`${process.env.API_BACKEND_URL}/users/update-user-admin`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${accessToken}`,
-      },
+      headers: await getAuthHeaders(accessToken),
       body: JSON.stringify(body),
       cache: 'no-store'
     });

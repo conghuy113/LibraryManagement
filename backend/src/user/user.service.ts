@@ -121,7 +121,8 @@ export class UserService extends BaseServiceAbstract<User> {
             ...otherFields,
             ...(parsedDOB && { DOB: parsedDOB })
         };
-        return await this.users_repository.update(id, updateData);
+        const updatedUser = await this.users_repository.update(id, updateData);
+        return this.changeToResponseUser(updatedUser);
     }
 
     private parsedDateInUpdate(dateString: string): Date {

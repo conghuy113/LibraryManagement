@@ -1,33 +1,13 @@
 "use server";
 
-export interface RegisterPayload {
-	email: string;
-	password: string;
-	firstName: string;
-	lastName: string;
-	phoneNumber: string;
-	gender: string;
-	DOB: string;
-}
-
-export interface RegisterSuccess {
-	message?: string;
-	[key: string]: any;
-}
-
-export interface RegisterError {
-	error: string;
-	message?: string;
-	statusCode?: number;
-}
+import { RegisterPayload, RegisterSuccess, RegisterError } from "@/types";
+import { getAuthHeaders } from "@/app/utils/auth";
 
 export async function register(payload: RegisterPayload): Promise<RegisterSuccess | RegisterError> {
 	try {
 		const response = await fetch(`${process.env.API_BACKEND_URL}/auth/register-reader`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
+			headers: await getAuthHeaders(),
 			body: JSON.stringify(payload),
 		});
 		const data = await response.json();

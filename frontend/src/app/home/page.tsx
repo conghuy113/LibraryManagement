@@ -2,21 +2,34 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Book, BookCover, TypeBook } from "@/types";
+import { Book, BookCover, CreateBookCoverDto, CreateBookDto, DeleteCoverBookDto, TypeBook, UpdateCoverBookDto, UpdateBookDto, DeleteBookDto } from "@/types";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { 
-  getAllCoverBooks, 
-  getAllTypeBooks, 
   getAllBooks,
-  createCoverBook,
-  createTypeBook,
   createBook,
-  CreateBookCoverDto,
-  CreateTypeBookDto,
-  CreateBookDto
-} from "@/app/actions/books/getBooks";
+  updateBook,
+  deleteBook,
+} from "@/app/actions/books/books";
+import { 
+  getAllCoverBooks,
+  createCoverBook,
+  updateCoverBook,
+  deleteCoverBook,
+} from "@/app/actions/books/coverBooks";
+import { 
+  getAllTypeBooks,
+  createTypeBook,
+  updateTypeBook,
+} from "@/app/actions/books/typeBooks";
 import Cookies from "js-cookie";
 import { Library, User, LogOut, Home, BookOpen, Users, Shield } from "lucide-react";
+import Footer from "@/components/layout/Footer";
+import { showConfirm } from "@/utils/dialog";
+import toast, { Toaster } from 'react-hot-toast';
+import {
+  CreateTypeBookDto,
+  UpdateTypeBookDto
+} from "@/types";
 
 // Enum for book index positions
 export enum IndexBook {
@@ -241,6 +254,257 @@ function CreateTypeBookModal({ isOpen, onClose, onSave, loading = false }: {
   );
 }
 
+// Update Book Type Modal
+function UpdateTypeBookModal({ isOpen, onClose, onSave, typeBook, loading = false }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: UpdateTypeBookDto) => void;
+  typeBook: TypeBook | null;
+  loading?: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+
+  // Initialize form with existing data when typeBook changes
+  useEffect(() => {
+    if (typeBook) {
+      setName(typeBook.name);
+      setDescription(typeBook.description);
+    }
+  }, [typeBook]);
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    // Only send the original name and updated description
+    onSave({ name: typeBook?.name || name, description });
+    onClose();
+  };
+
+  const handleClose = () => {
+    setName("");
+    setDescription("");
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose}>
+      <h3 className="text-lg font-semibold mb-4">Cập nhật loại sách</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Tên loại sách</label>
+          <input
+            type="text"
+            value={name}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+            disabled
+            title="Không thể thay đổi tên loại sách"
+          />
+          <p className="text-xs text-gray-500 mt-1">Tên loại sách không thể thay đổi</p>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Mô tả</label>
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            rows={3}
+            required
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+          >
+            {loading && (
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+            )}
+            {loading ? 'Đang cập nhật...' : 'Cập nhật'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
+// Update Book Cover Modal
+function UpdateCoverBookModal({ isOpen, onClose, onSave, coverBook, typeBooks, loading = false }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: UpdateCoverBookDto) => void;
+  coverBook: BookCover | null;
+  typeBooks: TypeBook[];
+  loading?: boolean;
+}) {
+  const [title, setTitle] = useState("");
+  const [authorName, setAuthorName] = useState("");
+  const [publicationYear, setPublicationYear] = useState("");
+  const [publisher, setPublisher] = useState("");
+  const [typeBookId, setTypeBookId] = useState("");
+  const [image, setImage] = useState("");
+
+  // Initialize form with existing data when coverBook changes
+  useEffect(() => {
+    if (coverBook) {
+      setTitle(coverBook.title);
+      setAuthorName(coverBook.authorName);
+      setPublicationYear(coverBook.publicationYear);
+      setPublisher(coverBook.publisher);
+      setTypeBookId(coverBook.typeBookId);
+      setImage(coverBook.image || "");
+    }
+  }, [coverBook]);
+
+  // Check if form has changes
+  const hasChanges = coverBook ? (
+    title !== coverBook.title ||
+    authorName !== coverBook.authorName ||
+    publicationYear !== coverBook.publicationYear ||
+    publisher !== coverBook.publisher ||
+    typeBookId !== coverBook.typeBookId ||
+    image !== (coverBook.image || "")
+  ) : false;
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!coverBook || !hasChanges) return;
+
+    const updateData: UpdateCoverBookDto = {
+      id: coverBook._id,
+    };
+
+    // Only include changed fields
+    if (title !== coverBook.title) updateData.title = title;
+    if (authorName !== coverBook.authorName) updateData.authorName = authorName;
+    if (publicationYear !== coverBook.publicationYear) updateData.publicationYear = publicationYear;
+    if (publisher !== coverBook.publisher) updateData.publisher = publisher;
+    if (typeBookId !== coverBook.typeBookId) updateData.typeBookId = typeBookId;
+    if (image !== (coverBook.image || "")) updateData.image = image;
+
+    onSave(updateData);
+    onClose();
+  };
+
+  const handleClose = () => {
+    if (coverBook) {
+      setTitle(coverBook.title);
+      setAuthorName(coverBook.authorName);
+      setPublicationYear(coverBook.publicationYear);
+      setPublisher(coverBook.publisher);
+      setTypeBookId(coverBook.typeBookId);
+      setImage(coverBook.image || "");
+    }
+    onClose();
+  };
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose}>
+      <h3 className="text-lg font-semibold mb-4">Cập nhật bìa sách</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Tiêu đề sách</label>
+          <input
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Tên tác giả</label>
+          <input
+            type="text"
+            value={authorName}
+            onChange={(e) => setAuthorName(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Năm xuất bản</label>
+          <input
+            type="text"
+            value={publicationYear}
+            onChange={(e) => setPublicationYear(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            pattern="^\d{4}$"
+            title="Nhập năm 4 chữ số"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Nhà xuất bản</label>
+          <input
+            type="text"
+            value={publisher}
+            onChange={(e) => setPublisher(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Loại sách</label>
+          <select
+            value={typeBookId}
+            onChange={(e) => setTypeBookId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Chọn loại sách</option>
+            {typeBooks.map((type) => (
+              <option key={type._id} value={type._id}>
+                {type.name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">URL hình ảnh</label>
+          <input
+            type="url"
+            value={image}
+            onChange={(e) => setImage(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading || !hasChanges}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            title={!hasChanges ? "Không có thông tin nào thay đổi" : ""}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Đang cập nhật...
+              </>
+            ) : 'Cập nhật'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // Create Book Modal
 function CreateBookModal({ isOpen, onClose, onSave, bookCovers, loading = false }: {
   isOpen: boolean;
@@ -347,13 +611,208 @@ function CreateBookModal({ isOpen, onClose, onSave, bookCovers, loading = false 
   );
 }
 
+// Update Book Modal
+function UpdateBookModal({ isOpen, onClose, onSave, book, bookCovers, loading = false }: {
+  isOpen: boolean;
+  onClose: () => void;
+  onSave: (data: UpdateBookDto) => void;
+  book: Book | null;
+  bookCovers: BookCover[];
+  loading?: boolean;
+}) {
+  const [idBook, setIdBook] = useState("");
+  const [importDate, setImportDate] = useState("");
+  const [index, setIndex] = useState("");
+  const [idBookCover, setIdBookCover] = useState("");
+  const [status, setStatus] = useState("");
+
+  // Initialize form with existing data when book changes
+  useEffect(() => {
+    if (book) {
+      setIdBook(String(book.idBook));
+      setImportDate(new Date(book.importDate).toISOString().split('T')[0]);
+      setIndex(String(book.index));
+      setIdBookCover(String(book.idBookCover));
+      setStatus(String(book.status));
+    }
+  }, [book]);
+
+  // Check if form has changes
+  const hasChanges = book ? (
+    String(idBook) !== String(book.idBook) ||
+    importDate !== new Date(book.importDate).toISOString().split('T')[0] ||
+    String(index) !== String(book.index) ||
+    String(idBookCover) !== String(book.idBookCover) ||
+    String(status) !== String(book.status)
+  ) : false;
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault();
+    if (!book || !hasChanges) return;
+
+    const updateData: UpdateBookDto = {
+      id: book._id,
+    };
+
+    // Only include changed fields - ensure all values are strings and properly formatted
+    if (String(idBook) !== String(book.idBook)) {
+      updateData.idBook = String(idBook);
+    }
+    
+    if (importDate !== new Date(book.importDate).toISOString().split('T')[0]) {
+      // Ensure proper DD-MM-YYYY format
+      const dateObj = new Date(importDate);
+      const day = String(dateObj.getDate()).padStart(2, '0');
+      const month = String(dateObj.getMonth() + 1).padStart(2, '0');
+      const year = dateObj.getFullYear();
+      updateData.importDate = `${day}-${month}-${year}`;
+    }
+    
+    if (String(index) !== String(book.index)) {
+      updateData.index = String(index);
+    }
+    
+    if (String(idBookCover) !== String(book.idBookCover)) {
+      updateData.idBookCover = String(idBookCover);
+    }
+    
+    if (String(status) !== String(book.status)) {
+      updateData.status = String(status);
+    }
+
+    console.log('Form data being sent:', updateData); // Debug log
+    onSave(updateData);
+    onClose();
+  };
+
+  const handleClose = () => {
+    if (book) {
+      setIdBook(String(book.idBook));
+      setImportDate(new Date(book.importDate).toISOString().split('T')[0]);
+      setIndex(String(book.index));
+      setIdBookCover(String(book.idBookCover));
+      setStatus(String(book.status));
+    }
+    onClose();
+  };
+
+  const statusOptions = [
+    { value: 'available', label: 'Có sẵn' },
+    { value: 'borrowed', label: 'Đã mượn' },
+    { value: 'maintenance', label: 'Bảo trì' },
+    { value: 'lost', label: 'Mất' },
+  ];
+
+  return (
+    <Modal isOpen={isOpen} onClose={handleClose}>
+      <h3 className="text-lg font-semibold mb-4">Cập nhật sách</h3>
+      <form onSubmit={handleSubmit}>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Bìa sách</label>
+          <select
+            value={idBookCover}
+            onChange={(e) => setIdBookCover(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Chọn bìa sách</option>
+            {bookCovers.map((cover) => (
+              <option key={cover._id} value={cover._id}>
+                {cover.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Mã sách</label>
+          <input
+            type="text"
+            value={idBook}
+            onChange={(e) => setIdBook(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            placeholder="VD: BK001"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Ngày nhập</label>
+          <input
+            type="date"
+            value={importDate}
+            onChange={(e) => setImportDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Vị trí lưu kho</label>
+          <select
+            value={index}
+            onChange={(e) => setIndex(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Chọn vị trí lưu kho</option>
+            {Object.values(IndexBook).map((indexValue) => (
+              <option key={indexValue} value={indexValue}>
+                {indexValue}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-medium mb-2">Trạng thái</label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            <option value="">Chọn trạng thái</option>
+            {statusOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={loading || !hasChanges}
+            className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center"
+            title={!hasChanges ? "Không có thông tin nào thay đổi" : ""}
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                Đang cập nhật...
+              </>
+            ) : 'Cập nhật'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClose}
+            disabled={loading}
+            className="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Hủy
+          </button>
+        </div>
+      </form>
+    </Modal>
+  );
+}
+
 // Card Components
 interface BookCoverCardProps {
   cover: BookCover;
   onClick: () => void;
+  onEdit?: (cover: BookCover) => void;
+  onDelete?: (cover: BookCover) => void;
 }
 
-function BookCoverCard({ cover, onClick, availableCount, isManager }: BookCoverCardProps & { 
+function BookCoverCard({ cover, onClick, availableCount, isManager, onEdit, onDelete }: BookCoverCardProps & { 
   availableCount: number; 
   isManager: boolean; 
 }) {
@@ -421,6 +880,37 @@ function BookCoverCard({ cover, onClick, availableCount, isManager }: BookCoverC
             Click để xem chi tiết sách
           </div>
         )}
+        {isManager && onEdit && (
+          <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="flex gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onEdit(cover);
+                }}
+                className="flex-1 px-3 py-2 text-sm bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition-colors flex items-center justify-center gap-2"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Chỉnh sửa
+              </button>
+              {onDelete && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onDelete(cover);
+                  }}
+                  className="px-3 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors flex items-center justify-center"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -428,17 +918,33 @@ function BookCoverCard({ cover, onClick, availableCount, isManager }: BookCoverC
 
 interface TypeBookCardProps {
   type: TypeBook;
+  onEdit?: (type: TypeBook) => void;
 }
 
-function TypeBookCard({ type }: TypeBookCardProps) {
+function TypeBookCard({ type, onEdit }: TypeBookCardProps) {
   return (
     <div className="bg-white rounded-xl shadow-md p-4 border-l-4 border-blue-500">
-      <div className="flex items-center gap-3">
-        <div className="w-4 h-4 rounded-full bg-blue-500"></div>
-        <div>
-          <h3 className="text-lg font-semibold text-gray-900">{type.name}</h3>
-          <p className="text-sm text-gray-600">{type.description}</p>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-3 flex-1">
+          <div className="w-4 h-4 rounded-full bg-blue-500"></div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-gray-900">{type.name}</h3>
+            <p className="text-sm text-gray-600">{type.description}</p>
+          </div>
         </div>
+        {onEdit && (
+          <div className="flex gap-2 ml-4">
+            <button
+              onClick={() => onEdit(type)}
+              className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
+              title="Chỉnh sửa"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -448,9 +954,12 @@ interface BookCardProps {
   book: Book;
   showCover?: boolean;
   showType?: boolean;
+  onEdit?: (book: Book) => void;
+  onDelete?: (book: Book) => void;
+  showActions?: boolean;
 }
 
-function BookCard({ book, showCover = false, showType = false }: BookCardProps) {
+function BookCard({ book, showCover = false, showType = false, onEdit, onDelete, showActions = false }: BookCardProps) {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'available':
@@ -554,6 +1063,27 @@ function BookCard({ book, showCover = false, showType = false }: BookCardProps) 
           <div className="text-xs text-gray-500">
             Nhập: {new Date(book.importDate).toLocaleDateString('vi-VN')}
           </div>
+
+          {showActions && (onEdit || onDelete) && (
+            <div className="flex gap-2 mt-3 pt-3 border-t border-gray-100">
+              {onEdit && (
+                <button
+                  onClick={() => onEdit(book)}
+                  className="flex-1 px-3 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors"
+                >
+                  Sửa
+                </button>
+              )}
+              {onDelete && (
+                <button
+                  onClick={() => onDelete(book)}
+                  className="flex-1 px-3 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+                >
+                  Xóa
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -572,6 +1102,12 @@ function HomeContent() {
   const [showCreateCoverModal, setShowCreateCoverModal] = useState(false);
   const [showCreateTypeModal, setShowCreateTypeModal] = useState(false);
   const [showCreateBookModal, setShowCreateBookModal] = useState(false);
+  const [showUpdateTypeModal, setShowUpdateTypeModal] = useState(false);
+  const [showUpdateCoverModal, setShowUpdateCoverModal] = useState(false);
+  const [showUpdateBookModal, setShowUpdateBookModal] = useState(false);
+  const [selectedTypeForUpdate, setSelectedTypeForUpdate] = useState<TypeBook | null>(null);
+  const [selectedCoverForUpdate, setSelectedCoverForUpdate] = useState<BookCover | null>(null);
+  const [selectedBookForUpdate, setSelectedBookForUpdate] = useState<Book | null>(null);
   
   // Data states
   const [bookCovers, setBookCovers] = useState<BookCover[]>([]);
@@ -587,7 +1123,7 @@ function HomeContent() {
 
   const handleLogout = async () => {
     try {
-      const confirmed = confirm('Bạn có chắc chắn muốn đăng xuất?');
+      const confirmed = await showConfirm('Bạn có chắc chắn muốn đăng xuất?');
       if (confirmed) {
         await logout();
         router.push('/');
@@ -724,6 +1260,9 @@ function HomeContent() {
         const covers = coversResponse.items || coversResponse.data || [];
         setBookCovers(Array.isArray(covers) ? (covers as BookCover[]) : []);
       }
+      
+      // Show success notification
+      toast.success('Tạo bìa sách thành công!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo bìa sách');
     } finally {
@@ -757,8 +1296,137 @@ function HomeContent() {
         const types = typesResponse.items || typesResponse.data || [];
         setTypeBooks(Array.isArray(types) ? (types as TypeBook[]) : []);
       }
+      
+      // Show success notification
+      toast.success('Tạo loại sách thành công!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo loại sách');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleUpdateType = async (typeData: UpdateTypeBookDto) => {
+    const token = Cookies.get('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token đăng nhập');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const response = await updateTypeBook(token, typeData);
+      
+      if (isErrorResponse(response)) {
+        throw new Error(response.message);
+      }
+
+      // Reload type books data
+      const typesResponse = await getAllTypeBooks(token);
+      if (!isErrorResponse(typesResponse)) {
+        const types = typesResponse.items || typesResponse.data || [];
+        setTypeBooks(Array.isArray(types) ? (types as TypeBook[]) : []);
+      }
+
+      setSelectedTypeForUpdate(null);
+      
+      // Show success notification
+      toast.success('Cập nhật loại sách thành công!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi cập nhật loại sách');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleEditType = (type: TypeBook) => {
+    setSelectedTypeForUpdate(type);
+    setShowUpdateTypeModal(true);
+  };
+
+  const handleUpdateCover = async (coverData: UpdateCoverBookDto) => {
+    const token = Cookies.get('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token đăng nhập');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const response = await updateCoverBook(token, coverData);
+      
+      if (isErrorResponse(response)) {
+        throw new Error(response.message);
+      }
+
+      // Reload book covers data
+      const coversResponse = await getAllCoverBooks(token);
+      if (!isErrorResponse(coversResponse)) {
+        const covers = coversResponse.items || coversResponse.data || [];
+        setBookCovers(Array.isArray(covers) ? (covers as BookCover[]) : []);
+      }
+
+      setSelectedCoverForUpdate(null);
+      
+      // Show success notification
+      toast.success('Cập nhật bìa sách thành công!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi cập nhật bìa sách');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleEditCover = (cover: BookCover) => {
+    setSelectedCoverForUpdate(cover);
+    setShowUpdateCoverModal(true);
+  };
+
+  const handleDeleteCover = async (cover: BookCover) => {
+    const token = Cookies.get('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token đăng nhập');
+      return;
+    }
+
+    try {
+      // Check if there are books using this cover
+      const booksWithCover = books.filter(book => book.idBookCover === cover._id);
+      
+      if (booksWithCover.length > 0) {
+        toast.error(`Không thể xóa bìa sách "${cover.title}" vì vẫn còn ${booksWithCover.length} cuốn sách đang sử dụng bìa này.`);
+        return;
+      }
+
+      const confirmed = await showConfirm(`Bạn có chắc chắn muốn xóa bìa sách "${cover.title}"?`);
+      if (!confirmed) return;
+
+      setCreateLoading(true);
+      
+      const deleteData: DeleteCoverBookDto = {
+        id: cover._id,
+      };
+
+      const response = await deleteCoverBook(token, deleteData);
+      
+      if (isErrorResponse(response)) {
+        console.error('Delete cover error:', response);
+        if (response.statusCode === 400) {
+          toast.error('Không thể xóa bìa sách vì vẫn còn sách đang sử dụng bìa này.');
+          return;
+        } 
+      }
+
+      // Show success notification first
+      toast.success(`Xóa bìa sách "${cover.title}" thành công!`);
+
+      // Force reload the page to ensure fresh data
+      setTimeout(() => {
+        window.location.reload();
+      }, 1000); // Small delay to show the success message
+
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi xóa bìa sách');
     } finally {
       setCreateLoading(false);
     }
@@ -804,11 +1472,117 @@ function HomeContent() {
         
         setBooks(processedBooks);
       }
+      
+      // Show success notification
+      toast.success('Tạo sách thành công!');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tạo sách');
     } finally {
       setCreateLoading(false);
     }
+  };
+
+  const handleUpdateBook = async (updateData: UpdateBookDto) => {
+    const token = Cookies.get('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token đăng nhập');
+      return;
+    }
+
+    console.log('Sending update data:', updateData); // Debug log
+    
+    setCreateLoading(true);
+    try {
+      const response = await updateBook(token, updateData);
+      if(isErrorResponse(response)) {
+        // Handle conflict error
+        if(response.statusCode === 409) {
+          toast.error('Mã sách đã tồn tại. Vui lòng sử dụng mã khác.');
+          return;
+        }
+        if(response.statusCode === 400) {
+          toast.error('Dữ liệu không hợp lệ. Vui lòng kiểm tra lại.');
+          return;
+        }
+      }
+      // Reload books data
+      const booksResponse = await getAllBooks(token);
+      if (!isErrorResponse(booksResponse)) {
+        const booksList = booksResponse.items || booksResponse.data || [];
+        let processedBooks = Array.isArray(booksList) ? (booksList as Book[]) : [];
+        
+        // If books don't have populated bookCover, manually populate from covers
+        if (processedBooks.length > 0 && !processedBooks[0].bookCover) {
+          const coverMap = new Map(bookCovers.map(cover => [cover._id, cover]));
+          
+          processedBooks = processedBooks.map(book => ({
+            ...book,
+            bookCover: coverMap.get(book.idBookCover)
+          }));
+        }
+        
+        setBooks(processedBooks);
+      }
+      
+      // Show success notification
+      toast.success('Cập nhật sách thành công!');
+      setShowUpdateBookModal(false);
+      setSelectedBookForUpdate(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi cập nhật sách');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleDeleteBook = async (book: Book) => {
+    const confirmed = await showConfirm(`Bạn có chắc chắn muốn xóa sách "${book.idBook}"?`);
+    if (!confirmed) {
+      return;
+    }
+
+    const token = Cookies.get('accessToken');
+    if (!token) {
+      setError('Không tìm thấy token đăng nhập');
+      return;
+    }
+
+    setCreateLoading(true);
+    try {
+      const deleteData: DeleteBookDto = { id: book._id };
+      const response = await deleteBook(token, deleteData);
+      
+      // Reload books data
+      const booksResponse = await getAllBooks(token);
+      if (!isErrorResponse(booksResponse)) {
+        const booksList = booksResponse.items || booksResponse.data || [];
+        let processedBooks = Array.isArray(booksList) ? (booksList as Book[]) : [];
+        
+        // If books don't have populated bookCover, manually populate from covers
+        if (processedBooks.length > 0 && !processedBooks[0].bookCover) {
+          const coverMap = new Map(bookCovers.map(cover => [cover._id, cover]));
+          
+          processedBooks = processedBooks.map(book => ({
+            ...book,
+            bookCover: coverMap.get(book.idBookCover)
+          }));
+        }
+        
+        setBooks(processedBooks);
+      }
+      
+      // Show success notification
+      toast.success('Xóa sách thành công!');
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi xóa sách');
+    } finally {
+      setCreateLoading(false);
+    }
+  };
+
+  const handleEditBook = (book: Book) => {
+    setSelectedBookForUpdate(book);
+    setShowUpdateBookModal(true);
   };
 
   const renderTabContent = () => {
@@ -872,7 +1646,14 @@ function HomeContent() {
                     </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                       {booksInSelectedCover.map((book) => (
-                        <BookCard key={book._id} book={book} showType={true} />
+                        <BookCard 
+                          key={book._id} 
+                          book={book} 
+                          showType={true}
+                          onEdit={isManager ? handleEditBook : undefined}
+                          onDelete={isManager ? handleDeleteBook : undefined}
+                          showActions={isManager}
+                        />
                       ))}
                     </div>
                     {booksInSelectedCover.length === 0 && (
@@ -903,6 +1684,8 @@ function HomeContent() {
                     onClick={() => setSelectedCoverId(cover._id)}
                     availableCount={getAvailableBooksCount(cover._id)}
                     isManager={isManager}
+                    onEdit={isManager ? handleEditCover : undefined}
+                    onDelete={isManager ? handleDeleteCover : undefined}
                   />
                 ))}
               </div>
@@ -933,7 +1716,11 @@ function HomeContent() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
               {typeBooks.map((type) => (
-                <TypeBookCard key={type._id} type={type} />
+                <TypeBookCard 
+                  key={type._id} 
+                  type={type} 
+                  onEdit={handleEditType}
+                />
               ))}
             </div>
 
@@ -974,6 +1761,8 @@ function HomeContent() {
                   onClick={() => setSelectedCoverId(cover._id)}
                   availableCount={getAvailableBooksCount(cover._id)}
                   isManager={isManager}
+                  onEdit={isManager ? handleEditCover : undefined}
+                  onDelete={isManager ? handleDeleteCover : undefined}
                 />
               ))}
             </div>
@@ -1034,7 +1823,15 @@ function HomeContent() {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
               {filteredBooks.map((book) => (
-                <BookCard key={book._id} book={book} showCover={true} showType={true} />
+                <BookCard 
+                  key={book._id} 
+                  book={book} 
+                  showCover={true} 
+                  showType={true}
+                  onEdit={isManager ? handleEditBook : undefined}
+                  onDelete={isManager ? handleDeleteBook : undefined}
+                  showActions={isManager}
+                />
               ))}
             </div>
 
@@ -1054,7 +1851,7 @@ function HomeContent() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Custom Header */}
       <header className="bg-white shadow-sm border-b sticky top-0 z-30">
         <div className="px-4 sm:px-6 lg:px-8">
@@ -1118,7 +1915,7 @@ function HomeContent() {
       </header>
 
       {/* Main Content */}
-      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="container mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
         <div className="space-y-8">
 
 
@@ -1179,6 +1976,29 @@ function HomeContent() {
           loading={createLoading}
         />
 
+        <UpdateTypeBookModal
+          isOpen={showUpdateTypeModal}
+          onClose={() => {
+            setShowUpdateTypeModal(false);
+            setSelectedTypeForUpdate(null);
+          }}
+          onSave={handleUpdateType}
+          typeBook={selectedTypeForUpdate}
+          loading={createLoading}
+        />
+
+        <UpdateCoverBookModal
+          isOpen={showUpdateCoverModal}
+          onClose={() => {
+            setShowUpdateCoverModal(false);
+            setSelectedCoverForUpdate(null);
+          }}
+          onSave={handleUpdateCover}
+          coverBook={selectedCoverForUpdate}
+          typeBooks={typeBooks}
+          loading={createLoading}
+        />
+
         <CreateBookModal
           isOpen={showCreateBookModal}
           onClose={() => setShowCreateBookModal(false)}
@@ -1186,8 +2006,32 @@ function HomeContent() {
           bookCovers={bookCovers}
           loading={createLoading}
         />
+
+        <UpdateBookModal
+          isOpen={showUpdateBookModal}
+          onClose={() => {
+            setShowUpdateBookModal(false);
+            setSelectedBookForUpdate(null);
+          }}
+          onSave={handleUpdateBook}
+          book={selectedBookForUpdate}
+          bookCovers={bookCovers}
+          loading={createLoading}
+        />
         </div>
       </main>
+      
+      <Footer />
+      <Toaster 
+        position="top-right"
+        toastOptions={{
+          duration: 4000,
+          style: {
+            background: '#fff',
+            color: '#333',
+          },
+        }}
+      />
     </div>
   );
 }

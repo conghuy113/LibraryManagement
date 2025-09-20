@@ -1,37 +1,22 @@
 "use server";
-interface LoginResponse {
-  accessToken: string;
-  refreshToken: string;
-  role?: string;
-}
 
-interface ErrorResponse {
-  message: string;
-  error: string;
-  statusCode: number;
-}
+import { getAuthHeaders } from "@/app/utils/auth";
+import { LoginCredentials, LoginResponse, ErrorResponse } from "@/types";
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-}
 
 export async function login(credentials: LoginCredentials): Promise<LoginResponse | ErrorResponse> {
     try {
         const response = await fetch(`${process.env.API_BACKEND_URL}/auth/login`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
+            headers: await getAuthHeaders(),
             body: JSON.stringify(credentials),
         });
 
         const data = await response.json();
-        if (!response.ok) {
-            return data as ErrorResponse;
-        }
+        console.log('Login response data:', data);
         return data as LoginResponse;
     } catch (error) {
+        console.log('Login error:', error);
         return {
             message: 'Có lỗi xảy ra khi đăng nhập',
             error: 'Internal Server Error',

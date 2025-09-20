@@ -15,6 +15,7 @@ import {
   Shield,
   Settings
 } from "lucide-react";
+import { showConfirm } from "@/utils/dialog";
 
 interface MainLayoutProps {
   children: ReactNode;
@@ -81,7 +82,7 @@ export default function MainLayout({
 
   const handleLogout = async () => {
     try {
-      const confirmed = confirm('Bạn có chắc chắn muốn đăng xuất?');
+      const confirmed = await showConfirm('Bạn có chắc chắn muốn đăng xuất?');
       if (confirmed) {
         console.log('Logging out...'); // Debug log
         await logout();

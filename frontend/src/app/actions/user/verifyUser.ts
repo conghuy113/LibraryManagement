@@ -1,23 +1,14 @@
 "use server";
 
-export interface VerifyResult {
-	message: string;
-	statusCode: number;
-}
+import { getAuthHeaders } from "@/app/utils/auth";
+import { VerifyResult, VerifyError } from "@/types";
 
-export interface VerifyError {
-	error: string;
-	message?: string;
-	statusCode?: number;
-}
 
 export async function verifyUser(token: string): Promise<VerifyResult | VerifyError> {
 	try {
 		const response = await fetch(`${process.env.API_BACKEND_URL}/auth/email/verify`, {
 			method: 'POST',
-			headers: {
-				'Content-Type': 'application/json',
-			},
+			headers: await getAuthHeaders(),
 			body: JSON.stringify({ token }),
 		});
 		const data = await response.json();

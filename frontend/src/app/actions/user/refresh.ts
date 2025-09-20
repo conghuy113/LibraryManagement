@@ -1,22 +1,14 @@
 "use server";
-interface RefreshResponse {
-  accessToken: string;
-  refreshToken: string;
-}
 
-interface ErrorResponse {
-  message: string;
-  error: string;
-  statusCode: number;
-}
+import { getAuthHeaders } from "@/app/utils/auth";
+import { RefreshResponse, ErrorResponse } from "@/types";
+
 
 export async function refreshToken(token: string): Promise<RefreshResponse | ErrorResponse> {
   try {
     const response = await fetch(`${process.env.API_BACKEND_URL}/auth/refresh-token`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
+      headers: await getAuthHeaders(),
       body: JSON.stringify({ token: token }),
     });
 

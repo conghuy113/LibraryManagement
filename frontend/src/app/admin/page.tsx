@@ -22,6 +22,8 @@ import {
   User as UserIcon,
   LogOut
 } from 'lucide-react';
+import Footer from "@/components/layout/Footer";
+import { showConfirm } from "@/utils/dialog";
 
 interface User {
   _id: string;
@@ -102,9 +104,11 @@ export default function AdminPage() {
         setFilteredUsers([]);
       } else {
         // Thành công
-        setUsers(result.users);
-        setFilteredUsers(result.users);
-        toast.success(`Đã tải ${result.totalUsers} người dùng`);
+        if ('users' in result && 'totalUsers' in result) {
+          setUsers(result.users);
+          setFilteredUsers(result.users);
+          toast.success(`Đã tải ${result.totalUsers} người dùng`);
+        }
       }
     } catch (error) {
       console.error('Error fetching users:', error);
@@ -163,7 +167,7 @@ export default function AdminPage() {
 
   const handleLogout = async () => {
     try {
-      const confirmed = window.confirm('Bạn có chắc chắn muốn đăng xuất?');
+      const confirmed = await showConfirm('Bạn có chắc chắn muốn đăng xuất?');
       if (confirmed) {
         await logout();
         // Clear cookies manually to ensure they are removed
@@ -239,7 +243,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-50 flex flex-col">
       <Toaster position="top-right" />
       
       {/* Admin Header */}
@@ -276,7 +280,7 @@ export default function AdminPage() {
       </header>
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1">
         <div className="space-y-8">
 
 
@@ -448,6 +452,8 @@ export default function AdminPage() {
           onUpdated={handleUserUpdated}
         />
       )}
+      
+      <Footer />
     </div>
   );
 }
