@@ -135,12 +135,13 @@ export class UserService extends BaseServiceAbstract<User> {
         }
     }
 
-    async changePassword(id: string, changePasswordDto: ChangePasswordDto): Promise<void> {
+    async changePassword(id: string, changePasswordDto: ChangePasswordDto): Promise<Object> {
         const user = await this.users_repository.findOneById(id);
-        if (!user || user.status !== StatusUser.VERIFIED) throw new Error('User not found');
+        if (!user || user.status !== StatusUser.VERIFIED || user.role === RoleUser.ADMIN) throw new Error('User not found');
         const isMatch = await bcrypt.compare(changePasswordDto.oldPassword, user.password);
-        if (!isMatch) throw new Error('Old password is incorrect');
+        if (!isMatch) return { message: 'Mật khẩu cũ không chính xác', status: 400 };
         const hashedNewPassword = await this.hashPassword(changePasswordDto.newPassword);
         await this.users_repository.update(id, { password: hashedNewPassword });
+        return { message: 'Đổi mật khẩu thành công', status: 200 };
     }
 }

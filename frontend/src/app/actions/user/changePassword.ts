@@ -1,16 +1,13 @@
 "use server";
 
-interface UpdateUserDTO {
-    firstName?: string;
-    lastName?: string;
-    phoneNumber?: string;
-    gender?: string;
-    DOB?: string;
+interface ChangePasswordDTO {
+    oldPassword: string;
+    newPassword: string;
 }
 
-export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
+export const changePassword = async (accessToken: string, data: ChangePasswordDTO) => {
     try {
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/update-user`, {
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/users/change-password`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -19,7 +16,7 @@ export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
             body: JSON.stringify(data)
         });
 
-        // Check if response is ok first
+        // Check if response is ok
         if (!response.ok) {
             // Try to parse error response
             let errorMessage = `HTTP ${response.status}`;
@@ -46,7 +43,7 @@ export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
             if (result.status && result.status !== 200) {
                 return {
                     statusCode: result.status,
-                    message: result.message || 'Update profile failed'
+                    message: result.message || 'Change password failed'
                 };
             }
             
@@ -54,13 +51,13 @@ export const updateUser = async (accessToken: string, data: UpdateUserDTO) => {
         } else {
             // If response is not JSON, assume success for 2xx status codes
             return {
-                message: 'Profile updated successfully',
+                message: 'Password changed successfully',
                 status: 200
             };
         }
 
     } catch (error: any) {
-        console.error('Update user error:', error);
+        console.error('Change password error:', error);
         return {
             statusCode: error.statusCode || 500,
             message: error.message || 'Network error or server is unavailable'

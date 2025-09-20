@@ -6,7 +6,8 @@ import Cookies from "js-cookie";
 import { useAuth } from "@/contexts/AuthContext";
 import { getMe } from "@/app/actions/user/getMe";
 import { updateUser } from "@/app/actions/user/updateUser";
-import { Library, User, LogOut, Home, BookOpen, Users, Shield, X, Calendar, Phone } from "lucide-react";
+import { changePassword } from "@/app/actions/user/changePassword";
+import { Library, User, LogOut, Home, BookOpen, Users, Shield, X, Calendar, Phone, Lock } from "lucide-react";
 import toast, { Toaster } from "react-hot-toast";
 
 function formatDOB(dob: string) {
@@ -40,12 +41,18 @@ export default function ProfilePage() {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [editForm, setEditForm] = useState({
     firstName: "",
     lastName: "",
     phoneNumber: "",
     gender: "",
     DOB: ""
+  });
+  const [passwordForm, setPasswordForm] = useState({
+    oldPassword: "",
+    newPassword: "",
+    confirmPassword: ""
   });
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -292,7 +299,7 @@ export default function ProfilePage() {
             </div>
 
             {/* Action Buttons */}
-            {!isEditing ? (
+            {!isEditing && !isChangingPassword ? (
               <div className="flex flex-col sm:flex-row gap-4 mt-8 pt-6 border-t border-gray-100">
                 <button
                   onClick={() => router.push("/home")}
@@ -317,8 +324,24 @@ export default function ProfilePage() {
                 >
                   Chỉnh sửa thông tin
                 </button>
+                <button
+                  onClick={() => {
+                    setPasswordForm({
+                      oldPassword: "",
+                      newPassword: "",
+                      confirmPassword: ""
+                    });
+                    setIsChangingPassword(true);
+                  }}
+                  className="flex-1 px-6 py-3 bg-orange-100 hover:bg-orange-200 text-orange-700 rounded-xl font-medium transition-colors flex items-center justify-center gap-2"
+                >
+                  <Lock className="w-4 h-4" />
+                  Đổi mật khẩu
+                </button>
               </div>
-            ) : (
+            ) : null}
+
+            {isEditing && (
               <div className="mt-8 pt-6 border-t border-gray-100">
                 <form onSubmit={async (e) => {
                   e.preventDefault();
@@ -572,6 +595,132 @@ export default function ProfilePage() {
                         </>
                       ) : (
                         'Lưu thay đổi'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+            {isChangingPassword && (
+              <div className="mt-8 pt-6 border-t border-gray-100">
+                <div className="mb-6">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Đổi mật khẩu</h3>
+                  <p className="text-sm text-gray-600">
+                    Mật khẩu phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt (@$!%*?&._-+=~#,)
+                  </p>
+                </div>
+                <form onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  // Validate required fields
+                  if (!passwordForm.oldPassword || !passwordForm.newPassword || !passwordForm.confirmPassword) {
+                    toast.error("Vui lòng điền đầy đủ thông tin");
+                    return;
+                  }
+
+                  // Check if new password matches confirm password
+                  if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+                    toast.error("Mật khẩu mới và xác nhận mật khẩu không khớp");
+                    return;
+                  }
+
+                  // Check if new password is different from old password
+                  if (passwordForm.oldPassword === passwordForm.newPassword) {
+                    toast.error("Mật khẩu mới phải khác mật khẩu cũ");
+                    return;
+                  }
+
+                  // Validate strong password
+                  const strongPasswordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&._\-+=~#,])[A-Za-z\d@$!%*?&._\-+=~#,]{8,}$/;
+                  if (!strongPasswordRegex.test(passwordForm.newPassword)) {
+                    toast.error("Mật khẩu mới phải có ít nhất 8 ký tự, bao gồm chữ hoa, chữ thường, số và ký tự đặc biệt (@$!%*?&._-+=~#,)");
+                    return;
+                  }
+
+                  setIsSubmitting(true);
+                  try {
+                    const result = await changePassword(Cookies.get('accessToken') as string, {
+                      oldPassword: passwordForm.oldPassword,
+                      newPassword: passwordForm.newPassword
+                    });
+                    
+                    // Check for error response (either statusCode from network error or status from backend)
+                    if (('statusCode' in result && result.statusCode !== 200) || 
+                        ('status' in result && result.status !== 200)) {
+                      throw new Error(result.message);
+                    }
+
+                    toast.success("Đổi mật khẩu thành công");
+                    setIsChangingPassword(false);
+                    setPasswordForm({
+                      oldPassword: "",
+                      newPassword: "",
+                      confirmPassword: ""
+                    });
+                  } catch (error: any) {
+                    toast.error(error.message || "Có lỗi xảy ra khi đổi mật khẩu");
+                  } finally {
+                    setIsSubmitting(false);
+                  }
+                }} className="space-y-6">
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu cũ</label>
+                      <input
+                        type="password"
+                        value={passwordForm.oldPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, oldPassword: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Nhập mật khẩu hiện tại"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Mật khẩu mới</label>
+                      <input
+                        type="password"
+                        value={passwordForm.newPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, newPassword: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Nhập mật khẩu mới"
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">Xác nhận mật khẩu mới</label>
+                      <input
+                        type="password"
+                        value={passwordForm.confirmPassword}
+                        onChange={(e) => setPasswordForm(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        placeholder="Nhập lại mật khẩu mới"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end gap-4">
+                    <button
+                      type="button"
+                      onClick={() => setIsChangingPassword(false)}
+                      className="px-6 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                    >
+                      Hủy
+                    </button>
+                    <button
+                      type="submit"
+                      disabled={isSubmitting}
+                      className="px-6 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg transition-colors flex items-center gap-2"
+                    >
+                      {isSubmitting ? (
+                        <>
+                          <span className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                          <span>Đang đổi mật khẩu...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="w-4 h-4" />
+                          <span>Đổi mật khẩu</span>
+                        </>
                       )}
                     </button>
                   </div>
