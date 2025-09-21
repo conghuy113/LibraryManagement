@@ -8,6 +8,7 @@ import Joi from 'joi';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AuthModule } from './auth/auth.module';
 import { BookModule } from './books/book.module';
+import { HistoryModule } from './history/history.module';
 
 
 @Module({
@@ -41,7 +42,8 @@ import { BookModule } from './books/book.module';
 		}),
 		UserModule,
 		AuthModule,
-		BookModule
+		BookModule,
+		HistoryModule
 	],
 	controllers: [AppController],
 	providers: [AppService],

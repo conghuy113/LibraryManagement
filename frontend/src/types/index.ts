@@ -268,3 +268,37 @@ export interface UpdateBookDto {
 export interface DeleteBookDto {
   id: string;
 }
+
+// ====================================================================
+// HISTORY INTERFACES
+// ====================================================================
+
+export enum StatusHistory {
+  REQUESTED = 'requested',
+  REJECTED = 'rejected',
+  BORROWED = 'borrowed',
+  RETURNED = 'returned',
+  OVERDUE = 'overdue'
+}
+
+export interface History {
+  _id: string;
+  idUser: string;
+  idBook: string;
+  borrowDate: Date;
+  returnDate: Date;
+  actualReturnDate: Date | null;
+  status: StatusHistory;
+  book?: Book; // Populated relation
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+// ====================================================================
+// HISTORY DTO INTERFACES
+// ====================================================================
+
+export interface CreateHistoryDto {
+  bookId: string;
+  numberDate: number;
+}

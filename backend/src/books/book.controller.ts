@@ -5,7 +5,7 @@ import { BookCoverService } from "./services/bookCover.service";
 import { ApiBearerAuth, ApiBody, ApiOperation } from "@nestjs/swagger";
 import { JwtAuthGuard } from "src/auth/guards/jwt.guard";
 import { RoleGuard } from "src/auth/guards/role.guard";
-import { ManagerOnly, ManagerOrReader, Roles } from "src/auth/decorators/roles.decorator";
+import { ManagerOnly, ManagerOrReader, ReaderOnly, Roles } from "src/auth/decorators/roles.decorator";
 import { TypeBook } from "./entities/typeBook.entity";
 import { CreateTypeBookDto } from "../dto/create-type-book.dto";
 import { CreateCoverBookDto } from "src/dto/create-cover-book.dto";
@@ -392,6 +392,27 @@ export class BookController {
         return {
             message: 'Book deleted successfully',
             status: 200
+        };
+    }
+
+    @Post('get-book-detail')
+    @UseGuards(JwtAuthGuard,RoleGuard)
+    @Roles()
+    @ManagerOrReader()
+    async getBookDetail(@Body() dto: { id: string }) {
+        const book = await this.bookService.findOne(dto.id);
+        if (!book) {
+            return {
+                message: `Book with id ${dto.id} not found`,
+                status: 404
+            };
+        }
+        const cover = await this.bookCoverService.findOne(book.idBookCover);
+        const typeBook =  await this.typeBookService.findOne(cover?.typeBookId as string);
+        return {
+            book: book,
+            coverBook: cover || null,
+            typeBook: typeBook || null
         };
     }
 }

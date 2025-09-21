@@ -4,14 +4,13 @@ import { ApiBearerAuth, ApiOperation } from '@nestjs/swagger';
 import { UpdateUserDto } from 'src/dto/update-user.dto';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { RoleGuard } from 'src/auth/guards/role.guard';
-import { AdminOnly, ManagerOrReader, ReaderOnly, Roles } from 'src/auth/decorators/roles.decorator';
+import { AdminOnly, ManagerOnly, ManagerOrReader, ReaderOnly, Roles } from 'src/auth/decorators/roles.decorator';
 import { ChangePasswordDto } from 'src/dto/change-password-dto';
 
 @Controller('users')
 export class UserController {
 
     constructor(private readonly userService: UserService) {}
-
 
 	@Get('profile')
 	@UseGuards(JwtAuthGuard)
@@ -91,5 +90,19 @@ export class UserController {
 	@UsePipes(new ValidationPipe({transform: true}))
 	changePassword(@Body() change_password_dto: ChangePasswordDto, @Req() req) {
 		return this.userService.changePassword(req.user._id as string, change_password_dto);
+	}
+
+	@Post('get-user-by-id')
+	@UseGuards(JwtAuthGuard,RoleGuard)
+	@Roles()
+	@ManagerOnly()
+	async getUserById(@Body() body: { id: string }) {
+		const user = await this.userService.findOne(body.id);
+		if (!user) throw new Error('User not found');
+		if(user.role === 'admin' || user.role === 'manager') throw new Error('Cannot access admin / manager information');
+		user.password = "";
+		user.refreshToken = "";
+		user.status = "" as any;
+		return user;
 	}
 }

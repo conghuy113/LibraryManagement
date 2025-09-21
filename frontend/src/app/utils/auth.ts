@@ -5,7 +5,7 @@ import { ErrorResponse } from "@/types";
 
 export async function handleApiResponse<T>(response: Response): Promise<T | ErrorResponse> {
   const data = await response.json();
-  if (!response.ok) {
+  if (response && !response.ok) {
     return {
       message: data.message || 'Có lỗi xảy ra',
       error: data.error,

@@ -2,7 +2,7 @@
 
 import { useState, FormEvent, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Book, BookCover, CreateBookCoverDto, CreateBookDto, DeleteCoverBookDto, TypeBook, UpdateCoverBookDto, UpdateBookDto, DeleteBookDto } from "@/types";
+import { Book, BookCover, CreateBookCoverDto, CreateBookDto, DeleteCoverBookDto, TypeBook, UpdateCoverBookDto, UpdateBookDto, DeleteBookDto, History } from "@/types";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { 
   getAllBooks,
@@ -21,6 +21,9 @@ import {
   createTypeBook,
   updateTypeBook,
 } from "@/app/actions/books/typeBooks";
+import { createHistory, getMyHistory, getBookDetail, getAllBorrowHistory, handleBorrowRequest, approveBorrowRequest, rejectBorrowRequest } from "@/app/actions/history/history";
+import { getUserById, UserProfile } from "@/app/actions/user/getUserById";
+import { refreshToken } from "@/app/actions/user/refresh";
 import Cookies from "js-cookie";
 import { Library, User, LogOut, Home, BookOpen, Users, Shield } from "lucide-react";
 import Footer from "@/components/layout/Footer";
@@ -28,7 +31,8 @@ import { showConfirm } from "@/utils/dialog";
 import toast, { Toaster } from 'react-hot-toast';
 import {
   CreateTypeBookDto,
-  UpdateTypeBookDto
+  UpdateTypeBookDto,
+  CreateHistoryDto
 } from "@/types";
 
 // Enum for book index positions
@@ -42,6 +46,52 @@ export enum IndexBook {
 // Error checking function
 function isErrorResponse(response: any): response is { message: string; statusCode?: number } {
   return response && typeof response.message === 'string';
+}
+
+// Helper function to format date
+function formatDate(dateString: string | Date): string {
+  const date = new Date(dateString);
+  return date.toLocaleDateString('vi-VN', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit'
+  });
+}
+
+// Helper function to get status color
+function getHistoryStatusColor(status: string): string {
+  switch (status) {
+    case 'requested':
+      return 'bg-yellow-100 text-yellow-800';
+    case 'approved':
+      return 'bg-blue-100 text-blue-800';
+    case 'rejected':
+      return 'bg-red-100 text-red-800';
+    case 'borrowed':
+      return 'bg-green-100 text-green-800';
+    case 'returned':
+      return 'bg-gray-100 text-gray-800';
+    case 'overdue':
+      return 'bg-red-100 text-red-800';
+    default:
+      return 'bg-gray-100 text-gray-800';
+  }
+}
+
+// Helper function to get status text
+function getHistoryStatusText(status: string): string {
+  switch (status) {
+    case 'requested':
+      return 'Đã yêu cầu';
+    case 'borrowed':
+      return 'Đang mượn';
+    case 'returned':
+      return 'Đã trả';
+    case 'overdue':
+      return 'Quá hạn';
+    default:
+      return status;
+  }
 }
 
 // Modal Components
@@ -680,7 +730,6 @@ function UpdateBookModal({ isOpen, onClose, onSave, book, bookCovers, loading = 
       updateData.status = String(status);
     }
 
-    console.log('Form data being sent:', updateData); // Debug log
     onSave(updateData);
     onClose();
   };
@@ -804,12 +853,231 @@ function UpdateBookModal({ isOpen, onClose, onSave, book, bookCovers, loading = 
   );
 }
 
+// User Profile Modal
+function UserProfileModal({ isOpen, onClose, userProfile, loading = false }: {
+  isOpen: boolean;
+  onClose: () => void;
+  userProfile: UserProfile | null;
+  loading?: boolean;
+}) {
+  return (
+    <Modal isOpen={isOpen} onClose={onClose}>
+      <h3 className="text-lg font-semibold mb-4">Thông tin người dùng</h3>
+      
+      {loading ? (
+        <div className="flex justify-center items-center py-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+          <span className="ml-3 text-gray-600">Đang tải thông tin...</span>
+        </div>
+      ) : userProfile ? (
+        <div className="space-y-4">
+          <div className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+              <span className="text-blue-600 font-semibold text-lg">
+                {userProfile.firstName?.charAt(0) || userProfile.lastName?.charAt(0) || 'U'}
+              </span>
+            </div>
+            <div>
+              <h4 className="font-semibold text-gray-900">
+                {`${userProfile.firstName || ''} ${userProfile.lastName || ''}`.trim() || 'Không có tên'}
+              </h4>
+              <p className="text-sm text-gray-500">{userProfile.email}</p>
+            </div>
+          </div>
+          
+          <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">ID:</label>
+              <p className="text-sm text-gray-900 font-mono bg-gray-100 p-2 rounded">{userProfile._id}</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Email:</label>
+              <p className="text-sm text-gray-900">{userProfile.email}</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Họ:</label>
+              <p className="text-sm text-gray-900">{userProfile.firstName || 'Chưa cập nhật'}</p>
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Tên:</label>
+              <p className="text-sm text-gray-900">{userProfile.lastName || 'Chưa cập nhật'}</p>
+            </div>
+            
+            {userProfile.gender && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Giới tính:</label>
+                <p className="text-sm text-gray-900">
+                  {userProfile.gender === 'male' ? 'Nam' : 
+                   userProfile.gender === 'female' ? 'Nữ' : 'Khác'}
+                </p>
+              </div>
+            )}
+            
+            {userProfile.phoneNumber && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Số điện thoại:</label>
+                <p className="text-sm text-gray-900">{userProfile.phoneNumber}</p>
+              </div>
+            )}
+            
+            {userProfile.DOB && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Ngày sinh:</label>
+                <p className="text-sm text-gray-900">
+                  {new Date(userProfile.DOB).toLocaleDateString('vi-VN', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
+                  })}
+                </p>
+              </div>
+            )}
+            
+            {userProfile.role && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Vai trò:</label>
+                <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                  {userProfile.role === 'admin' ? 'Quản trị viên' : 
+                   userProfile.role === 'manager' ? 'Quản lý' : 'Người dùng'}
+                </span>
+              </div>
+            )}
+            
+            {userProfile.status && (
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Trạng thái:</label>
+                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  userProfile.status === 'verified' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {userProfile.status === 'verified' ? 'Đã xác thực' : 'Chưa xác thực'}
+                </span>
+              </div>
+            )}
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Ngày tạo:</label>
+              <p className="text-sm text-gray-900">
+                {new Date(userProfile.createdAt).toLocaleDateString('vi-VN', {
+                  year: 'numeric',
+                  month: 'long',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-500">Không thể tải thông tin người dùng</p>
+        </div>
+      )}
+      
+      <div className="mt-6 flex justify-end">
+        <button
+          onClick={onClose}
+          className="px-4 py-2 bg-gray-500 text-white rounded-lg hover:bg-gray-600 transition-colors"
+        >
+          Đóng
+        </button>
+      </div>
+    </Modal>
+  );
+}
+
 // Card Components
 interface BookCoverCardProps {
   cover: BookCover;
   onClick: () => void;
   onEdit?: (cover: BookCover) => void;
   onDelete?: (cover: BookCover) => void;
+}
+
+interface HistoryCardProps {
+  history: History & { 
+    book?: Book;
+    bookCover?: BookCover;
+    typeBook?: TypeBook;
+  };
+}
+
+function HistoryCard({ history }: HistoryCardProps) {
+  const book = history.book;
+  const bookCover = history.bookCover; // Backend directly populates bookCover
+  const typeBook = history.typeBook; // Type book information
+
+  return (
+    <div className="bg-white rounded-xl shadow-md overflow-hidden transition-transform hover:scale-105">
+      <div className="h-48 bg-gray-200 relative">
+        {bookCover?.image ? (
+          <img 
+            src={bookCover.image} 
+            alt={bookCover.title}
+            className="w-full h-full object-cover"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center">
+            <BookOpen className="h-16 w-16 text-gray-400" />
+          </div>
+        )}
+        <div className="absolute top-2 right-2">
+          <span className={`px-2 py-1 rounded-full text-xs font-medium ${getHistoryStatusColor(history.status)}`}>
+            {getHistoryStatusText(history.status)}
+          </span>
+        </div>
+      </div>
+      <div className="p-4">
+        <h3 className="font-semibold text-lg mb-1 line-clamp-2">
+          {bookCover?.title || 'Không có tiêu đề'}
+        </h3>
+        <p className="text-gray-600 text-sm mb-2">
+          Tác giả: {bookCover?.authorName || 'Không rõ'}
+        </p>
+        <p className="text-gray-600 text-sm mb-2">
+          Thể loại: {typeBook?.name || 'Không rõ'}
+        </p>
+        <p className="text-gray-600 text-sm mb-2">
+          Năm xuất bản: {bookCover?.publicationYear || 'Không rõ'}
+        </p>
+        <p className="text-gray-600 text-sm mb-2">
+          Nhà xuất bản: {bookCover?.publisher || 'Không rõ'}
+        </p>
+        <p className="text-gray-600 text-sm mb-2">
+          Mã sách: {book?.idBook || 'Không rõ'}
+        </p>
+        <p className="text-gray-600 text-sm mb-3">
+          Vị trí: {book?.index || 'Không rõ'}
+        </p>
+        
+        <div className="space-y-1 text-sm border-t pt-3">
+          <div className="flex justify-between">
+            <span className="text-gray-600">Ngày mượn:</span>
+            <span className="font-medium">
+              {history.borrowDate ? formatDate(history.borrowDate) : 'Chưa mượn'}
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-600">Ngày trả dự kiến:</span>
+            <span className="font-medium">
+              {history.returnDate ? formatDate(history.returnDate) : 'Chưa xác định'}
+            </span>
+          </div>
+          {history.actualReturnDate && (
+            <div className="flex justify-between">
+              <span className="text-gray-600">Ngày trả thực tế:</span>
+              <span className="font-medium">
+                {formatDate(history.actualReturnDate)}
+              </span>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function BookCoverCard({ cover, onClick, availableCount, isManager, onEdit, onDelete }: BookCoverCardProps & { 
@@ -934,6 +1202,7 @@ function TypeBookCard({ type, onEdit }: TypeBookCardProps) {
         </div>
         {onEdit && (
           <div className="flex gap-2 ml-4">
+            {/* Only show edit button for managers */}
             <button
               onClick={() => onEdit(type)}
               className="p-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors"
@@ -957,6 +1226,199 @@ interface BookCardProps {
   onEdit?: (book: Book) => void;
   onDelete?: (book: Book) => void;
   showActions?: boolean;
+}
+
+interface BorrowRequestCardProps {
+  request: any; // Will be properly typed when we get the API structure
+  onApprove: (requestId: string) => void;
+  onReject: (requestId: string) => void;
+  onUserClick: (userId: string) => void;
+}
+
+interface BorrowHistoryCardProps {
+  history: any; // Will be properly typed when we get the API structure
+  onUserClick: (userId: string) => void;
+}
+
+function BorrowRequestCard({ request, onApprove, onReject, onUserClick }: BorrowRequestCardProps) {
+  // Extract book information from enriched data
+  const book = request.book;
+  const bookCover = request.bookCover || request.coverBook;
+  const typeBook = request.typeBook;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+            <span className="text-blue-600 font-semibold text-sm">
+              📖
+            </span>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              ID: 
+              <button
+                onClick={() => onUserClick(request.idUser)}
+                className="ml-1 text-blue-600 hover:text-blue-800 underline hover:no-underline transition-colors"
+              >
+                {request.idUser}
+              </button>
+            </h3>
+            <p className="text-sm text-gray-500">Mã sách: {book?.idBook || request.idBook}</p>
+          </div>
+        </div>
+        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+          Chờ duyệt
+        </span>
+      </div>
+
+      <div className="mb-4">
+        <h4 className="font-medium text-gray-900 mb-2">{bookCover?.title || 'Chưa có thông tin sách'}</h4>
+        <p className="text-sm text-gray-600">Tác giả: {bookCover?.authorName || 'N/A'}</p>
+        {typeBook && (
+          <p className="text-sm text-gray-500">Thể loại: {typeBook.name}</p>
+        )}
+        <p className="text-sm text-gray-500">
+          Ngày yêu cầu: {new Date(request.borrowDate || request.createdAt).toLocaleDateString('vi-VN')}
+        </p>
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          onClick={() => onApprove(request._id)}
+          className="flex-1 px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors"
+        >
+          Duyệt
+        </button>
+        <button
+          onClick={() => onReject(request._id)}
+          className="flex-1 px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors"
+        >
+          Từ chối
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BorrowHistoryCard({ history, onUserClick }: BorrowHistoryCardProps) {
+  const getStatusColor = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'REQUESTED':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200';
+      case 'APPROVED':
+        return 'bg-blue-100 text-blue-800 border-blue-200';
+      case 'BORROWED':
+        return 'bg-green-100 text-green-800 border-green-200';
+      case 'RETURNED':
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+      case 'OVERDUE':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'REJECTED':
+        return 'bg-red-100 text-red-800 border-red-200';
+      case 'CANCELED':
+        return 'bg-orange-100 text-orange-800 border-orange-200';
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200';
+    }
+  };
+
+  const getStatusText = (status: string) => {
+    switch (status?.toUpperCase()) {
+      case 'REQUESTED':
+        return 'Chờ duyệt';
+      case 'BORROWED':
+        return 'Đang mượn';
+      case 'RETURNED':
+        return 'Đã trả';
+      case 'OVERDUE':
+        return 'Quá hạn';
+      case 'CANCELED':
+        return 'Đã hủy';
+      default:
+        return status || 'Không xác định';
+    }
+  };
+
+  // Extract book information from enriched data
+  const book = history.book;
+  const bookCover = history.bookCover || history.coverBook;
+  const typeBook = history.typeBook;
+
+  return (
+    <div className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-200 p-6 border border-gray-200">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-purple-100 to-blue-100 rounded-full flex items-center justify-center">
+            <span className="text-purple-600 font-semibold text-lg">
+              📚
+            </span>
+          </div>
+          <div>
+            <h3 className="font-semibold text-gray-900">
+              ID: 
+              <button
+                onClick={() => onUserClick(history.idUser)}
+                className="ml-1 text-blue-600 hover:text-blue-800 underline hover:no-underline transition-colors"
+              >
+                {history.idUser}
+              </button>
+            </h3>
+            <p className="text-sm text-gray-500">Mã sách: {book?.idBook || history.idBook}</p>
+          </div>
+        </div>
+        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium border ${getStatusColor(history.status)}`}>
+          {getStatusText(history.status)}
+        </span>
+      </div>
+
+      <div className="mb-4">
+        <h4 className="font-semibold text-gray-900 mb-2 text-lg">{bookCover?.title || 'Chưa có thông tin sách'}</h4>
+        <div className="space-y-1 mb-3">
+          <p className="text-sm text-gray-600 flex items-center">
+            <span className="w-16 text-gray-500">Tác giả:</span>
+            <span className="font-medium">{bookCover?.authorName || 'N/A'}</span>
+          </p>
+          {typeBook && (
+            <p className="text-sm text-gray-600 flex items-center">
+              <span className="w-16 text-gray-500">Thể loại:</span>
+              <span className="font-medium">{typeBook.name}</span>
+            </p>
+          )}
+        </div>
+        
+        <div className="bg-gray-50 rounded-lg p-4 space-y-3">
+          <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className="space-y-1">
+              <span className="text-gray-500 text-xs uppercase tracking-wide">Ngày mượn</span>
+              <p className="font-medium text-gray-900">{new Date(history.borrowDate).toLocaleDateString('vi-VN')}</p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-gray-500 text-xs uppercase tracking-wide">Hạn trả</span>
+              <p className="font-medium text-gray-900">{new Date(history.returnDate).toLocaleDateString('vi-VN')}</p>
+            </div>
+          </div>
+          
+          {history.actualReturnDate && (
+            <div className="pt-2 border-t border-gray-200">
+              <span className="text-gray-500 text-xs uppercase tracking-wide">Ngày trả thực tế</span>
+              <p className="font-medium text-gray-900 mt-1">{new Date(history.actualReturnDate).toLocaleDateString('vi-VN')}</p>
+            </div>
+          )}
+          
+          {(history.status?.toUpperCase() === 'REJECTED' || history.status?.toUpperCase() === 'CANCELED') && (
+            <div className="pt-2 border-t border-gray-200">
+              <span className="text-gray-500 text-xs uppercase tracking-wide">Lý do</span>
+              <p className="font-medium text-gray-900 mt-1">
+                {history.status?.toUpperCase() === 'REJECTED' ? 'Yêu cầu bị từ chối bởi quản lý' : 'Yêu cầu đã bị hủy'}
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function BookCard({ book, showCover = false, showType = false, onEdit, onDelete, showActions = false }: BookCardProps) {
@@ -1091,9 +1553,9 @@ function BookCard({ book, showCover = false, showType = false, onEdit, onDelete,
 }
 
 function HomeContent() {
-  const { logout, userRole } = useAuth();
+  const { logout, userRole, user } = useAuth();
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<'covers' | 'books' | 'types'>('covers');
+  const [activeTab, setActiveTab] = useState<'covers' | 'books' | 'types' | 'rental' | 'history' | 'requests' | 'borrowHistory'>('covers');
   const [selectedCoverId, setSelectedCoverId] = useState<string | null>(null);
   const [selectedTypeId, setSelectedTypeId] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -1109,17 +1571,68 @@ function HomeContent() {
   const [selectedCoverForUpdate, setSelectedCoverForUpdate] = useState<BookCover | null>(null);
   const [selectedBookForUpdate, setSelectedBookForUpdate] = useState<Book | null>(null);
   
+  // User profile modal states
+  const [showUserProfileModal, setShowUserProfileModal] = useState(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<UserProfile | null>(null);
+  const [userProfileLoading, setUserProfileLoading] = useState(false);
+  
   // Data states
   const [bookCovers, setBookCovers] = useState<BookCover[]>([]);
   const [typeBooks, setTypeBooks] = useState<TypeBook[]>([]);
   const [books, setBooks] = useState<Book[]>([]);
+  const [myHistory, setMyHistory] = useState<(History & { 
+    book?: Book;
+    bookCover?: BookCover;
+    typeBook?: TypeBook;
+  })[]>([]);
+  const [borrowRequests, setBorrowRequests] = useState<any[]>([]);
+  const [borrowHistory, setBorrowHistory] = useState<any[]>([]);
+  
+  // Rental states
+  const [selectedCoverBooks, setSelectedCoverBooks] = useState<Set<string>>(new Set());
+  const [rentalDays, setRentalDays] = useState<number>(7);
   
   // Loading and error states
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [createLoading, setCreateLoading] = useState(false);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   const isManager = userRole === 'manager' || userRole === 'admin';
+  const isReader = userRole === null || userRole === undefined; // Reader has no role in cookies
+
+  // Helper function to get valid token with refresh if needed
+  const getValidToken = async (): Promise<string | null> => {
+    let token = Cookies.get('accessToken');
+    
+    if (!token) {
+      return null;
+    }
+
+    return token;
+
+    // For authentication errors, try to refresh the token
+    // const refreshTokenValue = Cookies.get('refreshToken');
+    // console.log('Refresh token available:', !!refreshTokenValue);
+    
+    // if (!refreshTokenValue) {
+    //   console.log('No refresh token available, returning original token');
+    //   return token; // Return original token if no refresh token
+    // }
+
+    // try {
+    //   const refreshResult = await refreshToken(refreshTokenValue);
+    //   if ('accessToken' in refreshResult && refreshResult.accessToken) {
+    //     console.log('Token refreshed successfully');
+    //     Cookies.set('accessToken', refreshResult.accessToken);
+    //     return refreshResult.accessToken;
+    //   }
+    // } catch (error) {
+    //   console.error('Token refresh failed:', error);
+    // }
+
+    // return token;
+  };
 
   const handleLogout = async () => {
     try {
@@ -1137,6 +1650,93 @@ function HomeContent() {
     router.push(path);
   };
 
+  // Helper function to enrich history data with book details
+  const enrichHistoryData = async (token: string, historyList: any[]) => {
+    setHistoryLoading(true);
+    const enrichedHistory = [];
+    
+    for (const historyItem of historyList) {
+      try {
+        // Fetch complete book details using the new consolidated API
+        const bookDetailResponse = await getBookDetail(token, historyItem.idBook);
+        
+        if (!isErrorResponse(bookDetailResponse)) {
+          // Check if response has a data wrapper or is the data itself
+          const bookDetail = (bookDetailResponse as any).data || bookDetailResponse;
+          
+          // Check if the response is directly the data we need or wrapped
+          let book, bookCover, typeBook;
+          
+          if ((bookDetail as any).book && (bookDetail as any).coverBook && (bookDetail as any).typeBook) {
+            // Response structure: { book: {}, coverBook: {}, typeBook: {} }
+            book = (bookDetail as any).book;
+            bookCover = (bookDetail as any).coverBook;
+            typeBook = (bookDetail as any).typeBook;
+          } else if ((bookDetail as any).idBook) {
+            // Response is the book itself with nested data
+            book = bookDetail;
+            bookCover = (bookDetail as any).coverBook;
+            typeBook = (bookDetail as any).typeBook;
+          } else {
+            // Fallback: try to extract from any level
+            book = (bookDetail as any).book || bookDetail;
+            bookCover = (bookDetail as any).coverBook || null;
+            typeBook = (bookDetail as any).typeBook || null;
+          }
+          
+          // Add enriched data to history item
+          enrichedHistory.push({
+            ...historyItem,
+            book,
+            bookCover,
+            typeBook
+          });
+        } else {
+          // If we can't get book details, add the history item as is
+          enrichedHistory.push(historyItem);
+        }
+      } catch (error) {
+        console.error('Error enriching history item:', error);
+        // If there's an error, add the history item as is
+        enrichedHistory.push(historyItem);
+      }
+    }
+    
+    setHistoryLoading(false);
+    return enrichedHistory;
+  };
+
+  // Handle user ID click to show user profile
+  const handleUserIdClick = async (userId: string) => {
+    try {
+      setUserProfileLoading(true);
+      setShowUserProfileModal(true);
+      
+      const token = Cookies.get('accessToken');
+      if (!token) {
+        toast.error('Không tìm thấy token đăng nhập');
+        setShowUserProfileModal(false);
+        return;
+      }
+      
+      const result = await getUserById(token, userId);
+      
+      // Check if result is an error response
+      if ('error' in result) {
+        toast.error(result.message || 'Không thể tải thông tin người dùng');
+        setShowUserProfileModal(false);
+      } else {
+        setSelectedUserProfile(result as UserProfile);
+      }
+    } catch (error) {
+      toast.error('Không thể tải thông tin người dùng');
+      console.error('Error fetching user profile:', error);
+      setShowUserProfileModal(false);
+    } finally {
+      setUserProfileLoading(false);
+    }
+  };
+
   // Load data from API
   useEffect(() => {
     const loadData = async () => {
@@ -1152,28 +1752,45 @@ function HomeContent() {
 
       try {
         // Load all data in parallel
-        const [coversResponse, typesResponse] = await Promise.all([
+        const promises = [
           getAllCoverBooks(token),
-          getAllTypeBooks(token)
-        ]);
+          getAllTypeBooks(token),
+          getAllBooks(token)
+        ];
         
-        // Load books separately with proper error handling
-        const booksResponse = await getAllBooks(token);
-
+        // Only load history for readers (userRole === null)
+        if (userRole === null) {
+          promises.push(getMyHistory(token));
+        }
+        
+        const responses = await Promise.all(promises);
+        const [coversResponse, typesResponse, booksResponse, historyResponse] = responses;
 
         // Handle book covers
         if (isErrorResponse(coversResponse)) {
           throw new Error(coversResponse.message);
         }
         const covers = coversResponse.items || coversResponse.data || [];
-        setBookCovers(Array.isArray(covers) ? (covers as BookCover[]) : []);
-
+        let processedCovers = Array.isArray(covers) ? (covers as BookCover[]) : [];
+        
         // Handle type books
         if (isErrorResponse(typesResponse)) {
           throw new Error(typesResponse.message);
         }
         const types = typesResponse.items || typesResponse.data || [];
         setTypeBooks(Array.isArray(types) ? (types as TypeBook[]) : []);
+        
+        // Manually populate typeBook in covers if not populated
+        if (processedCovers.length > 0 && !processedCovers[0].typeBook) {
+          const typeMap = new Map((types as TypeBook[]).map(type => [type._id, type]));
+          
+          processedCovers = processedCovers.map(cover => ({
+            ...cover,
+            typeBook: typeMap.get(cover.typeBookId)
+          }));
+        }
+        
+        setBookCovers(processedCovers);
 
         // Handle books
         if (isErrorResponse(booksResponse)) {
@@ -1195,6 +1812,16 @@ function HomeContent() {
         
         setBooks(processedBooks);
 
+        // Handle history for readers
+        if (userRole === null && historyResponse && !isErrorResponse(historyResponse)) {
+          const historyList = historyResponse.data || historyResponse.items || [];
+          const rawHistory = Array.isArray(historyList) ? (historyList as any[]) : [];
+          
+          // Enrich history data with book, cover, and type details
+          const enrichedHistory = await enrichHistoryData(token, rawHistory);
+          setMyHistory(enrichedHistory);
+        }
+
       } catch (err) {
         setError(err instanceof Error ? err.message : 'Có lỗi xảy ra khi tải dữ liệu');
       } finally {
@@ -1203,7 +1830,16 @@ function HomeContent() {
     };
 
     loadData();
-  }, []);
+  }, [userRole]); // Add userRole as dependency
+
+  // Load manager-specific data when needed
+  useEffect(() => {
+    if (isManager && activeTab === 'requests') {
+      fetchBorrowRequests();
+    } else if (isManager && activeTab === 'borrowHistory') {
+      fetchAllBorrowHistory();
+    }
+  }, [activeTab, isManager]);
 
   // Helper function to get available book count for a cover
   const getAvailableBooksCount = (coverId: string) => {
@@ -1488,8 +2124,6 @@ function HomeContent() {
       setError('Không tìm thấy token đăng nhập');
       return;
     }
-
-    console.log('Sending update data:', updateData); // Debug log
     
     setCreateLoading(true);
     try {
@@ -1583,6 +2217,274 @@ function HomeContent() {
   const handleEditBook = (book: Book) => {
     setSelectedBookForUpdate(book);
     setShowUpdateBookModal(true);
+  };
+
+  // Rental handling functions
+  const handleCoverBookSelection = (coverId: string) => {
+    const newSelection = new Set(selectedCoverBooks);
+    if (newSelection.has(coverId)) {
+      newSelection.delete(coverId);
+    } else {
+      newSelection.add(coverId);
+    }
+    setSelectedCoverBooks(newSelection);
+  };
+
+  // Function to refresh history
+  const refreshHistory = async () => {
+    if (userRole !== null) return; // Only for readers (userRole === null)
+    
+    const token = await getValidToken();
+    if (!token) return;
+    
+    setHistoryLoading(true);
+    try {
+      const historyResponse = await getMyHistory(token);
+      if (!isErrorResponse(historyResponse)) {
+        const historyList = historyResponse.data || historyResponse.items || [];
+        const rawHistory = Array.isArray(historyList) ? (historyList as any[]) : [];
+        
+        // Enrich history data with book, cover, and type details
+        const enrichedHistory = await enrichHistoryData(token, rawHistory);
+        setMyHistory(enrichedHistory);
+        toast.success('Đã cập nhật lịch sử thuê sách');
+      } else {
+        toast.error('Không thể tải lịch sử: ' + historyResponse.message);
+      }
+    } catch (error) {
+      console.error('Error refreshing history:', error);
+      toast.error('Có lỗi xảy ra khi tải lịch sử');
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  // Function to fetch borrow requests for managers
+  const fetchBorrowRequests = async () => {
+    if (!isManager) return;
+    
+    const token = await getValidToken();
+    if (!token) return;
+    
+    setLoading(true);
+    try {
+      const response = await getAllBorrowHistory(token);
+      if (!isErrorResponse(response)) {
+        const history = response.items || [];
+        const rawHistory = Array.isArray(history) ? history : [];
+        
+        // Filter only REQUESTED status
+        const requestedHistory = rawHistory.filter(item => item.status?.toUpperCase() === 'REQUESTED');
+        
+        // Enrich history data with book, cover, and type details
+        const enrichedHistory = await enrichHistoryData(token, requestedHistory);
+        setBorrowRequests(enrichedHistory);
+      } else {
+        toast.error('Không thể tải danh sách yêu cầu: ' + response.message);
+        setBorrowRequests([]);
+      }
+    } catch (error) {
+      console.error('Error fetching borrow requests:', error);
+      toast.error('Có lỗi xảy ra khi tải danh sách yêu cầu');
+      setBorrowRequests([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to fetch all borrow history for managers
+  const fetchAllBorrowHistory = async () => {
+    if (!isManager) return;
+    
+    const token = await getValidToken();
+    if (!token) return;
+    
+    setLoading(true);
+    try {
+      const response = await getAllBorrowHistory(token);
+      if (!isErrorResponse(response)) {
+        const history = response.items || [];
+        const rawHistory = Array.isArray(history) ? history : [];
+        
+        // Enrich history data with book, cover, and type details
+        const enrichedHistory = await enrichHistoryData(token, rawHistory);
+        setBorrowHistory(enrichedHistory);
+      } else {
+        toast.error('Không thể tải lịch sử mượn sách: ' + response.message);
+        setBorrowHistory([]);
+      }
+    } catch (error) {
+      console.error('Error fetching all borrow history:', error);
+      toast.error('Có lỗi xảy ra khi tải lịch sử mượn sách');
+      setBorrowHistory([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Function to handle approve borrow request
+  const handleApproveRequest = async (requestId: string) => {
+    const token = await getValidToken();
+    if (!token) return;
+    
+    try {
+      const response = await handleBorrowRequest(token, requestId, true);
+      if (!isErrorResponse(response)) {
+        toast.success('Đã duyệt yêu cầu mượn sách');
+        await fetchBorrowRequests(); // Refresh the list
+      } else {
+        toast.error('Không thể duyệt yêu cầu: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error approving request:', error);
+      toast.error('Có lỗi xảy ra khi duyệt yêu cầu');
+    }
+  };
+
+  // Function to handle reject borrow request
+  const handleRejectRequest = async (requestId: string) => {
+    const token = await getValidToken();
+    if (!token) return;
+    
+    try {
+      const response = await handleBorrowRequest(token, requestId, false);
+      if (!isErrorResponse(response)) {
+        toast.success('Đã từ chối yêu cầu mượn sách');
+        await fetchBorrowRequests(); // Refresh the list
+      } else {
+        toast.error('Không thể từ chối yêu cầu: ' + response.message);
+      }
+    } catch (error) {
+      console.error('Error rejecting request:', error);
+      toast.error('Có lỗi xảy ra khi từ chối yêu cầu');
+    }
+  };
+
+  const handleCreateRentalRequests = async () => {
+    if (selectedCoverBooks.size === 0) {
+      toast.error('Vui lòng chọn ít nhất một bìa sách để thuê');
+      return;
+    }
+
+    if (rentalDays <= 1) {
+      toast.error('Số ngày thuê phải lớn hơn 1');
+      return;
+    }
+
+    let token = await getValidToken();
+    
+    if (!token) {
+      toast.error('Không tìm thấy token đăng nhập. Vui lòng đăng nhập lại.');
+      return;
+    }
+
+    // Check if user is a reader (in this system, reader has no role - only manager/admin have roles)
+    // So if userRole is null or undefined, that means it's a reader
+    if (userRole !== null && userRole !== 'reader') {
+      toast.error(`Chỉ người dùng với quyền reader mới có thể thuê sách. Quyền hiện tại: ${userRole || 'reader (không có role)'}`);
+      return;
+    }
+
+    setCreateLoading(true);
+    
+    try {
+      const requests: Promise<any>[] = [];
+      
+      // For each selected cover book, find an available book and create a rental request
+      const selectedArray = Array.from(selectedCoverBooks);
+      for (const coverId of selectedArray) {
+        const availableBook = books.find(book => 
+          book.idBookCover === coverId && book.status === 'available'
+        );
+        
+        if (availableBook) {
+          const historyData: CreateHistoryDto = {
+            bookId: availableBook._id,
+            numberDate: rentalDays
+          };
+          
+          requests.push(createHistory(token, historyData));
+        }
+      }
+
+      const results = await Promise.allSettled(requests);
+      
+      let successCount = 0;
+      let errorCount = 0;
+      let authErrors = 0;
+      
+      results.forEach((result, index) => {
+        if (result.status === 'fulfilled') {
+          if (!('message' in result.value) || !result.value.statusCode) {
+            successCount++;
+          } else {
+            errorCount++;
+            console.error('Rental request failed:', result.value);
+            
+            // Check for authentication errors
+            if (result.value.statusCode === 403 || result.value.statusCode === 401) {
+              authErrors++;
+              console.error('Authentication error detected:', result.value);
+            }
+          }
+        } else {
+          errorCount++;
+          console.error('Rental request error:', result.reason);
+        }
+      });
+
+      if (authErrors > 0) {
+        toast.error('Lỗi xác thực. Vui lòng đăng nhập lại.');
+        // You might want to logout the user here
+        // logout();
+        return;
+      }
+
+      if (successCount > 0) {
+        toast.success(`Tạo thành công ${successCount} yêu cầu thuê sách!`);
+        
+        // Reload books data to update status
+        const booksResponse = await getAllBooks(token);
+        if (!isErrorResponse(booksResponse)) {
+          const booksList = booksResponse.items || booksResponse.data || [];
+          let processedBooks = Array.isArray(booksList) ? (booksList as Book[]) : [];
+          
+          if (processedBooks.length > 0 && !processedBooks[0].bookCover) {
+            const coverMap = new Map(bookCovers.map(cover => [cover._id, cover]));
+            processedBooks = processedBooks.map(book => ({
+              ...book,
+              bookCover: coverMap.get(book.idBookCover)
+            }));
+          }
+          
+          setBooks(processedBooks);
+        }
+        
+        // Reload history for readers
+        if (userRole === null) {
+          const historyResponse = await getMyHistory(token);
+          if (!isErrorResponse(historyResponse)) {
+            const historyList = historyResponse.data || historyResponse.items || [];
+            const rawHistory = Array.isArray(historyList) ? (historyList as any[]) : [];
+            const enrichedHistory = await enrichHistoryData(token, rawHistory);
+            setMyHistory(enrichedHistory);
+          }
+        }
+        
+        // Clear selection
+        setSelectedCoverBooks(new Set());
+      }
+      
+      if (errorCount > 0) {
+        toast.error(`Có ${errorCount} yêu cầu thất bại`);
+      }
+      
+    } catch (error) {
+      console.error('Error creating rental requests:', error);
+      toast.error('Có lỗi xảy ra khi tạo yêu cầu thuê sách');
+    } finally {
+      setCreateLoading(false);
+    }
   };
 
   const renderTabContent = () => {
@@ -1694,24 +2596,18 @@ function HomeContent() {
         );
 
       case 'types':
-        // Only managers can access this tab
-        if (!isManager) {
-          return (
-            <div className="text-center py-12">
-              <p className="text-gray-500 text-lg">Bạn không có quyền truy cập trang này.</p>
-            </div>
-          );
-        }
         return (
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Loại sách</h2>
-              <button
-                onClick={() => setShowCreateTypeModal(true)}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
-              >
-                Tạo loại sách
-              </button>
+              {isManager && (
+                <button
+                  onClick={() => setShowCreateTypeModal(true)}
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
+                >
+                  Tạo loại sách
+                </button>
+              )}
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
@@ -1719,7 +2615,7 @@ function HomeContent() {
                 <TypeBookCard 
                   key={type._id} 
                   type={type} 
-                  onEdit={handleEditType}
+                  onEdit={isManager ? handleEditType : undefined}
                 />
               ))}
             </div>
@@ -1770,6 +2666,249 @@ function HomeContent() {
             {filteredBookCovers.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500">Không có bìa sách nào thuộc loại này.</p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'rental':
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Thuê sách</h2>
+              {selectedCoverBooks.size > 0 && (
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-2">
+                    <label className="text-sm font-medium text-gray-700">Số ngày thuê:</label>
+                    <input
+                      type="number"
+                      min="2"
+                      max="30"
+                      value={rentalDays}
+                      onChange={(e) => setRentalDays(parseInt(e.target.value))}
+                      className="w-20 px-2 py-1 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+                  <button
+                    onClick={handleCreateRentalRequests}
+                    disabled={createLoading}
+                    className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {createLoading && (
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    )}
+                    {createLoading ? 'Đang tạo yêu cầu...' : `Tạo yêu cầu (${selectedCoverBooks.size})`}
+                  </button>
+                </div>
+              )}
+            </div>
+            
+            <div className="mb-6">
+              <div className="relative">
+                <input
+                  type="text"
+                  placeholder="Tìm kiếm sách theo tên, tác giả..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="w-full max-w-md px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                />
+                <svg
+                  className="absolute right-3 top-2.5 h-5 w-5 text-gray-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                  />
+                </svg>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {filteredBookCovers.map((cover) => {
+                const availableCount = getAvailableBooksCount(cover._id);
+                const isSelected = selectedCoverBooks.has(cover._id);
+                const canSelect = availableCount > 0;
+                
+                return (
+                  <div 
+                    key={cover._id} 
+                    className={`bg-white rounded-xl shadow-md overflow-hidden transition-all duration-200 ${
+                      canSelect ? 'cursor-pointer hover:scale-105' : 'opacity-50 cursor-not-allowed'
+                    } ${isSelected ? 'ring-4 ring-yellow-400' : ''}`}
+                    onClick={() => canSelect && handleCoverBookSelection(cover._id)}
+                  >
+                    <div className="h-48 bg-gray-200 relative">
+                      {cover.image ? (
+                        <img 
+                          src={cover.image} 
+                          alt={cover.title}
+                          className="w-full h-full object-cover"
+                          onError={(e) => {
+                            e.currentTarget.style.display = 'none';
+                            e.currentTarget.nextElementSibling?.classList.remove('hidden');
+                          }}
+                        />
+                      ) : null}
+                      <div className="absolute inset-0 flex items-center justify-center bg-gradient-to-br from-blue-400 to-purple-500">
+                        <BookOpen className="w-12 h-12 text-white" />
+                      </div>
+                      
+                      {/* Available count badge */}
+                      <div className="absolute top-2 right-2">
+                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                          availableCount > 0 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-red-100 text-red-800'
+                        }`}>
+                          {availableCount > 0 ? `${availableCount} có sẵn` : 'Hết sách'}
+                        </span>
+                      </div>
+                      
+                      {/* Selection indicator */}
+                      {isSelected && (
+                        <div className="absolute top-2 left-2">
+                          <div className="w-6 h-6 bg-yellow-500 rounded-full flex items-center justify-center">
+                            <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-4">
+                      <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                        {cover.title}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-1">Tác giả: {cover.authorName}</p>
+                      <p className="text-sm text-gray-600 mb-1">NXB: {cover.publisher}</p>
+                      <div className="flex justify-between items-center mt-3">
+                        <span className="text-sm text-blue-600">Năm: {cover.publicationYear}</span>
+                        {cover.typeBook && (
+                          <span className="px-2 py-1 text-xs bg-gray-100 text-gray-700 rounded-full">
+                            {cover.typeBook.name}
+                          </span>
+                        )}
+                      </div>
+                      
+                      {!canSelect && (
+                        <div className="mt-3 text-center text-sm text-red-500 font-medium">
+                          Không có sách khả dụng
+                        </div>
+                      )}
+                      
+                      {canSelect && !isSelected && (
+                        <div className="mt-3 text-center text-sm text-gray-500">
+                          Click để chọn mượn
+                        </div>
+                      )}
+                      
+                      {isSelected && (
+                        <div className="mt-3 text-center text-sm text-yellow-600 font-medium">
+                          ✓ Đã chọn
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {filteredBookCovers.length === 0 && (
+              <div className="text-center py-12">
+                <p className="text-gray-500 text-lg">
+                  Không tìm thấy sách phù hợp với tìm kiếm của bạn.
+                </p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'history':
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Lịch sử thuê sách</h2>
+              <button
+                onClick={refreshHistory}
+                disabled={createLoading || historyLoading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {(createLoading || historyLoading) ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Đang tải...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Làm mới
+                  </>
+                )}
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-lg">Đang tải thông tin chi tiết lịch sử thuê sách...</p>
+                <p className="text-gray-400 text-sm">Vui lòng đợi trong giây lát</p>
+              </div>
+            ) : myHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Bạn chưa có lịch sử thuê sách nào</p>
+                <p className="text-gray-400 text-sm">Hãy thuê sách để xem lịch sử tại đây</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Group history by status */}
+                {[
+                  { status: 'requested', title: 'Đang chờ duyệt', color: 'border-yellow-200' },
+                  
+                  { status: 'borrowed', title: 'Đang mượn', color: 'border-green-200' },
+                  { status: 'overdue', title: 'Quá hạn', color: 'border-red-200' },
+                  { status: 'returned', title: 'Đã trả', color: 'border-gray-200' },
+                  { status: 'rejected', title: 'Bị từ chối', color: 'border-red-200' },
+                ].map((section) => {
+                  const sectionHistory = myHistory.filter(h => h.status === section.status);
+                  
+                  if (sectionHistory.length === 0) return null;
+                  
+                  return (
+                    <div key={section.status} className={`bg-white rounded-lg shadow-sm border-l-4 ${section.color} p-6`}>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center">
+                        {section.title}
+                        <span className="ml-2 bg-gray-100 text-gray-600 text-sm px-2 py-1 rounded-full">
+                          {sectionHistory.length}
+                        </span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                        {sectionHistory.map((historyItem, index) => (
+                          <HistoryCard key={historyItem._id || `history-${section.status}-${index}`} history={historyItem} />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+                
+                {/* Show all history if no specific status grouping is visible */}
+                {myHistory.every(h => !['requested', 'approved', 'borrowed', 'overdue', 'returned', 'rejected'].includes(h.status)) && (
+                  <div className="bg-white rounded-lg shadow-sm p-6">
+                    <h3 className="text-lg font-semibold mb-4">Tất cả lịch sử</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+                      {myHistory.map((historyItem, index) => (
+                        <HistoryCard key={historyItem._id || `history-all-${index}`} history={historyItem} />
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1840,6 +2979,184 @@ function HomeContent() {
                 <p className="text-gray-500 text-lg">
                   Không tìm thấy sách phù hợp với tìm kiếm của bạn.
                 </p>
+              </div>
+            )}
+          </div>
+        );
+
+      case 'requests':
+        // Only managers can access this tab
+        if (!isManager) {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">Bạn không có quyền truy cập trang này.</p>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Yêu cầu mượn sách</h2>
+              <button
+                onClick={fetchBorrowRequests}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Đang tải...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Làm mới
+                  </>
+                )}
+              </button>
+            </div>
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-lg">Đang tải danh sách yêu cầu...</p>
+              </div>
+            ) : borrowRequests.length === 0 ? (
+              <div className="text-center py-12">
+                <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Không có yêu cầu mượn sách nào</p>
+                <p className="text-gray-400 text-sm">Tất cả yêu cầu đã được xử lý</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {borrowRequests.map((request) => (
+                  <BorrowRequestCard
+                    key={request._id}
+                    request={request}
+                    onApprove={handleApproveRequest}
+                    onReject={handleRejectRequest}
+                    onUserClick={handleUserIdClick}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        );
+
+      case 'borrowHistory':
+        // Only managers can access this tab
+        if (!isManager) {
+          return (
+            <div className="text-center py-12">
+              <p className="text-gray-500 text-lg">Bạn không có quyền truy cập trang này.</p>
+            </div>
+          );
+        }
+        return (
+          <div>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">Lịch sử mượn sách</h2>
+              <button
+                onClick={fetchAllBorrowHistory}
+                disabled={loading}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2 transition-colors"
+              >
+                {loading ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    Đang tải...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                    </svg>
+                    Làm mới
+                  </>
+                )}
+              </button>
+            </div>
+
+            {/* Statistics Overview */}
+            {borrowHistory.length > 0 && (
+              <div className="mb-6 grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-4">
+                {[
+                  { status: 'REQUESTED', title: 'Chờ duyệt', color: 'bg-yellow-500', icon: '⏳' },
+                  
+                  { status: 'BORROWED', title: 'Đang mượn', color: 'bg-green-500', icon: '📖' },
+                  { status: 'RETURNED', title: 'Đã trả', color: 'bg-gray-500', icon: '✔️' },
+                  { status: 'OVERDUE', title: 'Quá hạn', color: 'bg-red-500', icon: '⚠️' },
+                  
+                  { status: 'CANCELED', title: 'Đã hủy', color: 'bg-orange-500', icon: '🚫' },
+                ].map((stat) => {
+                  const count = borrowHistory.filter(h => h.status?.toUpperCase() === stat.status).length;
+                  return (
+                    <div key={stat.status} className="bg-white rounded-lg shadow-sm border p-4 text-center">
+                      <div className={`w-8 h-8 ${stat.color} rounded-full flex items-center justify-center mx-auto mb-2`}>
+                        <span className="text-white text-sm">{stat.icon}</span>
+                      </div>
+                      <p className="text-2xl font-bold text-gray-900">{count}</p>
+                      <p className="text-xs text-gray-500 mt-1">{stat.title}</p>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {loading ? (
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+                <p className="text-gray-600 text-lg">Đang tải lịch sử mượn sách...</p>
+              </div>
+            ) : borrowHistory.length === 0 ? (
+              <div className="text-center py-12">
+                <BookOpen className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg">Chưa có lịch sử mượn sách nào</p>
+                <p className="text-gray-400 text-sm">Lịch sử sẽ hiển thị khi có người dùng mượn sách</p>
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Group history by status */}
+                {[
+                  { status: 'REQUESTED', title: 'Chờ duyệt', color: 'border-yellow-200', bgColor: 'bg-yellow-50' },
+                
+                  { status: 'BORROWED', title: 'Đang mượn', color: 'border-green-200', bgColor: 'bg-green-50' },
+                  { status: 'RETURNED', title: 'Đã trả', color: 'border-gray-200', bgColor: 'bg-gray-50' },
+                  { status: 'OVERDUE', title: 'Quá hạn', color: 'border-red-200', bgColor: 'bg-red-50' },
+                  
+                  { status: 'CANCELED', title: 'Đã hủy', color: 'border-orange-200', bgColor: 'bg-orange-50' },
+                ].map((section) => {
+                  const sectionHistory = borrowHistory.filter(h => h.status?.toUpperCase() === section.status);
+                  
+                  if (sectionHistory.length === 0) return null;
+                  
+                  return (
+                    <div key={section.status} className={`${section.bgColor} rounded-lg shadow-sm border-l-4 ${section.color} p-6`}>
+                      <h3 className="text-lg font-semibold mb-4 flex items-center justify-between">
+                        <span className="flex items-center">
+                          {section.title}
+                          <span className="ml-2 bg-white text-gray-700 text-sm px-3 py-1 rounded-full font-medium shadow-sm">
+                            {sectionHistory.length}
+                          </span>
+                        </span>
+                        <span className="text-sm text-gray-500">
+                          {new Date().toLocaleDateString('vi-VN')}
+                        </span>
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        {sectionHistory.map((historyItem) => (
+                          <BorrowHistoryCard 
+                            key={historyItem._id || historyItem.id} 
+                            history={historyItem} 
+                            onUserClick={handleUserIdClick}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
@@ -1931,18 +3248,18 @@ function HomeContent() {
           >
             Bìa sách
           </button>
-          {isManager && (
+          <button
+            onClick={() => setActiveTab('types')}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              activeTab === 'types'
+                ? 'bg-white text-green-600 shadow-sm'
+                : 'text-gray-600 hover:text-gray-900'
+            }`}
+          >
+            Loại sách
+          </button>
+          {isManager ? (
             <>
-              <button
-                onClick={() => setActiveTab('types')}
-                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                  activeTab === 'types'
-                    ? 'bg-white text-green-600 shadow-sm'
-                    : 'text-gray-600 hover:text-gray-900'
-                }`}
-              >
-                Loại sách
-              </button>
               <button
                 onClick={() => setActiveTab('books')}
                 className={`px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -1952,6 +3269,49 @@ function HomeContent() {
                 }`}
               >
                 Tất cả sách
+              </button>
+              <button
+                onClick={() => setActiveTab('requests')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'requests'
+                    ? 'bg-white text-orange-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Yêu cầu mượn sách
+              </button>
+              <button
+                onClick={() => setActiveTab('borrowHistory')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'borrowHistory'
+                    ? 'bg-white text-teal-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Lịch sử mượn sách
+              </button>
+            </>
+          ) : (
+            <>
+              <button
+                onClick={() => setActiveTab('rental')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'rental'
+                    ? 'bg-white text-yellow-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Thuê sách
+              </button>
+              <button
+                onClick={() => setActiveTab('history')}
+                className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+                  activeTab === 'history'
+                    ? 'bg-white text-indigo-600 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900'
+                }`}
+              >
+                Lịch sử thuê
               </button>
             </>
           )}
@@ -2017,6 +3377,16 @@ function HomeContent() {
           book={selectedBookForUpdate}
           bookCovers={bookCovers}
           loading={createLoading}
+        />
+
+        <UserProfileModal
+          isOpen={showUserProfileModal}
+          onClose={() => {
+            setShowUserProfileModal(false);
+            setSelectedUserProfile(null);
+          }}
+          userProfile={selectedUserProfile}
+          loading={userProfileLoading}
         />
         </div>
       </main>
